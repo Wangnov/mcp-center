@@ -11,6 +11,7 @@
 - `Layout.tsx`：顶层壳组件（侧边栏导航 + `<Outlet />`）。依赖 `TooltipProvider`、`HealthStatusBadge`、`McpCenterLogo`。
 - `AddServerDialog.tsx`：新增服务器对话框，组合 shadcn `Dialog`、`Form`、`Select` 等组件。
 - `HealthStatusBadge.tsx`：调用 `getHealth` API 并根据状态显示动画徽章。
+- `ErrorFallback.tsx`：全局错误边界的回退 UI，配合 `react-error-boundary` 使用，提供重试与刷新操作。
 - `theme-provider.tsx`：包装 `next-themes` 风格的 ThemeProvider，控制 `class` attribute。
 - `icons/`：目前仅包含 `McpCenterLogo.tsx`。
 - `servers/`：
