@@ -1,0 +1,73 @@
+[package]
+name = "mcp-center"
+version = "0.0.1"
+authors = ["Wangnov"]
+edition = "2024"
+license = "MIT"
+description = "Unified MCP server management tool with bridge and daemon"
+repository = "https://github.com/Wangnov/mcp-center"
+readme = "README.md"
+keywords = ["mcp", "ai", "agent", "server", "manager"]
+categories = ["command-line-utilities", "development-tools"]
+
+# Single binary with subcommands
+[[bin]]
+name = "mcp-center"
+path = "src/bin/mcp-center.rs"
+
+[lib]
+name = "mcp_center"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1.0"
+blake3 = "1.5"
+clap = { version = "4.5", features = ["derive"] }
+locale_config = "0.3"
+rand = "0.8"
+rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", features = [
+    "client",
+    "transport-async-rw",
+    "transport-io",
+    "transport-sse-client-reqwest",
+    "transport-streamable-http-client-reqwest",
+    "transport-child-process",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+time = { version = "0.3", features = ["formatting", "local-offset"] }
+tokio = { version = "1.41", features = [
+    "macros",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "net",
+    "time",
+    "io-std",
+    "io-util",
+    "fs",
+    "process",
+] }
+toml_edit = { version = "0.23", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+    "fmt",
+    "env-filter",
+    "json",
+] }
+url = "2.5"
+axum = { version = "0.7", features = ["macros", "json"] }
+tower = { version = "0.4", features = ["util", "timeout", "limit"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+specta = { version = "1.0.5", features = ["serde"] }
+specta-typescript = "0.0.9"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3.13"
+mcp-center-test-client = { path = "../mcp-center-test-client" }
+assert_cmd = "2.0"
+predicates = "3.1"
