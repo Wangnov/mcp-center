@@ -53,7 +53,7 @@
 
 - 所有测试使用 `tempdir()`/`Layout::new(tmp.path())`，避免污染真实 `~/.mcp-center`。
 - 依赖 `assert_cmd` 检查 CLI 返回值、stdout/stderr。
-- JSON 解析使用 `serde_json::Value`，断言对接口契约敏感（字段名 `snake_case`）。
+- JSON 解析使用 `serde_json::Value`，断言对接口契约敏感（字段名为 camelCase）。
 - 若测试启动 daemon，记得清理子进程并等待结束，防止悬挂。
 
 ## 扩展建议

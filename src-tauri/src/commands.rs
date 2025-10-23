@@ -14,6 +14,7 @@ use tracing::{debug, info, warn};
    ======================================== */
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpServer {
     pub id: String,
     pub name: String,

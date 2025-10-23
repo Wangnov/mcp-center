@@ -82,13 +82,13 @@ pub struct ToolSummary {
 }
 
 #[derive(Serialize, Type)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub struct ToolListResponse {
     pub tools: Vec<ToolSummary>,
 }
 
 #[derive(Serialize, Type)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub struct ServerDetail {
     pub id: String,
     pub name: String,
@@ -105,21 +105,21 @@ pub struct ServerDetail {
 }
 
 #[derive(Serialize, Type)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub struct ServerDetailResponse {
     pub server: ServerDetail,
     pub tools: Vec<ToolSummary>,
 }
 
 #[derive(Serialize, Type)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub struct ServerToggleResponse {
     pub server: ServerSnapshot,
     pub warning: Option<String>,
 }
 
 #[derive(Serialize, Type)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectSummary {
     pub id: String,
     pub path: String,

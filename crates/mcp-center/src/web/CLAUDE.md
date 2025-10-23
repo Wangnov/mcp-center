@@ -61,7 +61,7 @@
 
 ## 注意事项
 
-- 字段命名：当前多数响应使用 `snake_case`（与 CLI / 测试一致），Specta 会导出对应风格；若未来改为 `camelCase` 需同步前端、测试、Specta 类型。
+- 字段命名：HTTP 响应采用 `camelCase`，与 Specta/前端类型保持一致；调整结构时请同步导出文件与测试。
 - 项目路径解析：严格依赖 `ProjectRegistry` 与 `Layout`，路径展开/规范化失败会直接返回 `400`/`500`。修改时需同步测试场景。
 - BigInt 类型：`u64`/`usize` 通过 Specta 脚本强制导出为 TypeScript `number`，请确认值不超过 `Number.MAX_SAFE_INTEGER`。
 

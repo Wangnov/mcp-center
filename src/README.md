@@ -35,7 +35,7 @@ npm run build          # 生产构建（含 tsc -b）
 ## 注意事项
 
 - Tailwind v4 不再使用 `@apply`，自定义类写到 `app.css` 的 `@utility`。
-- HTTP 返回 snake_case，前端使用 camelCase 类型，封装层需兼容字段命名差异。
+- HTTP 接口已统一使用 camelCase，前端直接消费 Specta 导出的类型即可。
 - 打包为桌面应用时，Tauri 会调用 `get_backend_base_url` / `get_backend_auth_token` 命令注入 API 地址。
 
 更多细节请查看本目录下的 `AGENTS.md` / `CLAUDE.md`。

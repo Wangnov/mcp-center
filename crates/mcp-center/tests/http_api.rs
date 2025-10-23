@@ -85,7 +85,7 @@ fn http_api_project_allow_and_deny() {
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let summary: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(summary["allowed_server_ids"], json!(["demo"]));
+        assert_eq!(summary["allowedServerIds"], json!(["demo"]));
 
         let response = router
             .clone()
@@ -103,7 +103,7 @@ fn http_api_project_allow_and_deny() {
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let projects: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(projects["projects"][0]["allowed_server_ids"], json!(["demo"]));
+        assert_eq!(projects["projects"][0]["allowedServerIds"], json!(["demo"]));
 
         let deny_payload = json!({
             "target": target,
@@ -127,7 +127,7 @@ fn http_api_project_allow_and_deny() {
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let summary: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(summary["allowed_server_ids"], json!([]));
+        assert_eq!(summary["allowedServerIds"], json!([]));
 
         let response = router
             .clone()

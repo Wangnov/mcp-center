@@ -97,8 +97,8 @@ src-tauri/                  # Tauri 2.0 桌面壳（命令待接入核心逻辑�
 
 ### 前后端契约
 
-- 后端 JSON 响应仍为 **snake_case**；Specta 导出的 TS 类型多为 **camelCase**。
-- `api.ts` 封装层需处理 `toolCount` vs `tool_count` 等兼容性；新增字段时保持对齐。
+- HTTP JSON 响应统一使用 **camelCase**，Specta 导出的 TS 类型与后端保持一致。
+- `api.ts` 封装层直接透传 camelCase 响应，不再做字段重命名。
 - 导出的 Specta 文件 (`api-types.generated.ts`) 禁止手改，新增接口后必须重新导出。
 
 ---
@@ -172,7 +172,7 @@ npm run tauri:dev     # 桌面模式（依赖后端 HTTP 服务）
 
 ## 7. 契约与命名指南
 
-- **HTTP 命名**：后端 snake_case，前端 camelCase；`api.ts` 需处理混合情况。
+- **HTTP 命名**：后端与前端一致采用 camelCase；`api.ts` 不再做大小写转换。
 - **文件结构**：Rust 模块按需求拆分；前端保持 “页面（pages）→ 复用组件（components）→ 基础组件（components/ui）” 层次。
 - **Tailwind**：`app.css` 作为单一来源，禁止在组件中引入独立 Tailwind 配置文件。
 - **多语言**：i18n key 使用 `snake_case`，翻译字符串在 `src/i18n.ts` 所指向的资源中维护。
