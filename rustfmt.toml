@@ -1,0 +1,47 @@
+# rustfmt configuration for mcp-center
+# 使用 stable rustfmt，可跨团队复现
+
+# 指定 Rust edition(与 Cargo.toml 保持一致)
+edition = "2024"
+
+# 指定 style edition
+style_edition = "2024"
+
+# 基础格式化设置
+# 每行最大宽度
+max_width = 100
+
+# 硬制表符空格数
+tab_spaces = 4
+
+# 换行符风格
+newline_style = "Unix"
+
+# ============================================
+# 代码风格设置
+# ============================================
+# 使用字段初始化简写 (x 而不是 x: x)
+use_field_init_shorthand = true
+
+# 合并derive属性
+merge_derives = true
+
+# ============================================
+# 函数和结构体设置
+# ============================================
+# 函数调用参数宽度阈值
+fn_call_width = 80
+
+# 结构体字面量宽度阈值
+struct_lit_width = 80
+
+# 数组宽度阈值
+array_width = 80
+
+# 链式调用宽度阈值
+chain_width = 80
+
+# ============================================
+# re-order imports / modules
+reorder_imports = true
+reorder_modules = true

@@ -1,0 +1,7 @@
+[alias]
+# Workspace-wide helpers
+fix-all = "fix --workspace --all-targets --all-features --allow-dirty"
+check-all = "check --workspace --all-targets --all-features"
+lint-fix = "clippy --fix --workspace --all-targets --all-features --allow-dirty -- -D warnings"
+lint = "clippy --workspace --all-targets --all-features -- -D warnings"
+test-all = "test --workspace --all-targets --all-features"

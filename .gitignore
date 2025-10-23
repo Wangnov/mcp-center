@@ -1,0 +1,58 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Build
+build/
+.output/
+.vercel/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage/
+*.lcov
+
+# Misc
+.cache/
+.parcel-cache/
+
+# AI Agent files (Keep)
+.cursor
+.claude
+.codex

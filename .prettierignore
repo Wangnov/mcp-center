@@ -1,0 +1,41 @@
+# Ignore artifacts
+node_modules
+dist
+dist-ssr
+build
+.output
+
+# Ignore Rust build output
+target/
+**/target/
+src-tauri/target/
+crates/*/target/
+Cargo.lock
+
+# Ignore generated files
+src/lib/api-types.generated.ts
+
+# Ignore lockfiles
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Ignore logs
+*.log
+
+# Ignore configuration
+.env
+.env.*
+!.env.development
+
+# Ignore cache
+.cache
+.parcel-cache
+.vscode
+.idea
+.DS_Store
+
+# Ignore temporary files
+*.tmp
+*.temp
+.turbo

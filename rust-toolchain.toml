@@ -1,0 +1,4 @@
+# Rust toolchain configuration for mcp-center
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
