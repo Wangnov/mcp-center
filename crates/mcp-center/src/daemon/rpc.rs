@@ -2,11 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::{UnixListener, UnixStream},
-};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tracing::{debug, error, info};
+
+use interprocess::local_socket::traits::tokio::Listener as _;
+use interprocess::local_socket::{
+    GenericFilePath, ListenerOptions, ToFsName, tokio::prelude::LocalSocketStream,
+};
 
 use crate::daemon::server_manager::ServerManager;
 
@@ -63,21 +65,26 @@ impl RpcServer {
     /// Start the RPC server
     pub async fn start(self) -> anyhow::Result<()> {
         // Remove existing socket file if present
-        if self.socket_path.exists() {
-            std::fs::remove_file(&self.socket_path)?;
+        #[cfg(unix)]
+        {
+            if self.socket_path.exists() {
+                std::fs::remove_file(&self.socket_path)?;
+            }
+
+            // Ensure parent directory exists
+            if let Some(parent) = self.socket_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
         }
 
-        // Ensure parent directory exists
-        if let Some(parent) = self.socket_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let listener = UnixListener::bind(&self.socket_path)?;
-        info!("RPC server listening on {}", self.socket_path.display());
+        let socket_display = self.socket_path.to_string_lossy().into_owned();
+        let listener_name = socket_display.as_str().to_fs_name::<GenericFilePath>()?;
+        let listener = ListenerOptions::new().name(listener_name).create_tokio()?;
+        info!("RPC server listening on {}", socket_display);
 
         loop {
             match listener.accept().await {
-                Ok((stream, _addr)) => {
+                Ok(stream) => {
                     let manager = self.manager.clone();
                     tokio::spawn(async move {
                         if let Err(e) = handle_connection(stream, manager).await {
@@ -94,8 +101,11 @@ impl RpcServer {
 }
 
 /// Handle a single RPC connection
-async fn handle_connection(stream: UnixStream, manager: Arc<ServerManager>) -> anyhow::Result<()> {
-    let (reader, mut writer) = stream.into_split();
+async fn handle_connection(
+    stream: LocalSocketStream,
+    manager: Arc<ServerManager>,
+) -> anyhow::Result<()> {
+    let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
 

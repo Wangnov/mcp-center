@@ -39,7 +39,7 @@
 
 ## 注意事项
 
-- 控制 socket/UnixStream 仅在 Unix 支持；非 Unix 平台 `ControlServerHandle::Disabled`。
+- 控制 socket 改为使用 `interprocess` 跨平台本地 socket，Unix/Windows 行为一致（Unix 仍需删除残留文件）。
 - `server_manager` 使用 tokio + rmcp；处理 async 错误时多返回 `anyhow` 或 `McpError`，上层需充分日志。
 - 工具缓存：调用 `list_tools`/`call_tool` 前先 `ensure_tool_cache()`，倚赖 `needs_refresh` 标志；若新增通知类型需同步设置。
 - 日志写入：`ServerAdapterInner::write_log` 将服务端 log JSON 行追加到 `<logs>/<id>.log`。

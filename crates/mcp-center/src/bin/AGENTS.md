@@ -14,7 +14,7 @@
   - `Connect` → 调用 `bridge::connect::run`.
   - `Mcp` 子命令：
     - `add/list/list-tools/info/remove/enable/disable`：读写 `ServerConfig`，操作 `Layout`。
-    - `list-tools/info` 依赖 `daemon::rpc` 通过 Unix Socket 查询正在运行的 daemon。
+    - `list-tools/info` 依赖 `daemon::rpc` 通过本地 IPC socket 查询正在运行的 daemon。
   - `Project` 子命令：
     - `add/remove/list/allow/deny/...` 直接调用 `ProjectRegistry`，变更权限或自定义描述。
   - `Init`：创建基础目录 + 示例配置。
@@ -22,7 +22,7 @@
 - 常见辅助函数：
   - `resolve_layout(cli.root?)`，内部调用 `default_root`.
   - `print_table` / `prompt_confirm` 等交互辅助。
-  - 与 daemon RPC 的交互使用 tokio runtime + `UnixStream`。
+- 与 daemon RPC 的交互使用 tokio runtime + `interprocess` 本地 socket。
 
 ## export-types.rs
 

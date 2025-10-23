@@ -55,6 +55,6 @@ crates/mcp-center/
 ## 开发提示
 
 - 共享结构 (`ProjectRecord`, `ServerDefinition`, Specta 模型等) 的变更需同步更新 CLI/Web/Daemon/测试；具体细节见各模块 `AGENTS.md`。
-- 桥接控制 socket 目前仅支持 Unix；在其他平台需要额外实现（参考 `bridge/AGENTS.md`）。
+- 桥接控制 socket 已迁移到 `interprocess` 跨平台本地 socket；Unix 平台负责清理 socket 文件，Windows 使用命名管道自动清理。
 - 文件 IO 及目录管理建议统一通过 `paths::Layout`，新增资源时请在 `paths.rs` 补充接口。
 - 任何前端/接口变更记得重新运行 `npm run export-types` 并提交生成文件。

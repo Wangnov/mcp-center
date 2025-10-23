@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::Result;
+use blake3;
 
 use crate::{config::ServerConfig, error::CoreError};
 
@@ -106,12 +107,20 @@ impl Layout {
 
     /// Path to the daemon control socket file.
     pub fn daemon_socket_path(&self) -> PathBuf {
-        self.state_dir().join("daemon.sock")
+        if cfg!(windows) {
+            PathBuf::from(self.pipe_name("control"))
+        } else {
+            self.state_dir().join("daemon.sock")
+        }
     }
 
     /// Path to the RPC socket file (daemon CLI interface).
     pub fn daemon_rpc_socket_path(&self) -> PathBuf {
-        self.state_dir().join("daemon.rpc.sock")
+        if cfg!(windows) {
+            PathBuf::from(self.pipe_name("rpc"))
+        } else {
+            self.state_dir().join("daemon.rpc.sock")
+        }
     }
 
     /// Path to the daemon lock file (prevents concurrent startup).
@@ -218,6 +227,14 @@ impl Layout {
             let _ = fs::remove_file(&pid_path);
         }
         Ok(())
+    }
+
+    fn pipe_name(&self, suffix: &str) -> String {
+        let root_repr = self.root.to_string_lossy();
+        let hash = blake3::hash(root_repr.as_bytes());
+        let hash_str = hash.to_hex().to_string();
+        let short_hash = &hash_str[..16];
+        format!(r"\\.\pipe\mcp-center-{suffix}-{short_hash}")
     }
 
     fn server_config_candidates(&self, id: &str) -> [PathBuf; 2] {

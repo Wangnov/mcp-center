@@ -15,11 +15,12 @@ use mcp_center::{
     ServerProtocol, default_root,
 };
 
+use interprocess::local_socket::traits::tokio::Stream as _;
+use interprocess::local_socket::{GenericFilePath, ToFsName, tokio::prelude::LocalSocketStream};
 use mcp_center::cli_i18n as i18n;
 use serde_json::json;
 use time::OffsetDateTime;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -960,12 +961,23 @@ fn persist_server_config(config: &ServerConfig) -> Result<()> {
 
 async fn send_rpc_request(layout: &Layout, request: DaemonRequest) -> Result<DaemonResponse> {
     let socket_path = layout.daemon_rpc_socket_path();
+    #[cfg(unix)]
     if !socket_path.exists() {
         bail!("{}", i18n::messages().daemon_not_running());
     }
 
-    let stream = UnixStream::connect(&socket_path).await?;
-    let (reader, mut writer) = stream.into_split();
+    let socket_name = socket_path.to_string_lossy().to_string();
+    let stream_name = socket_name.as_str().to_fs_name::<GenericFilePath>()?;
+    let stream = match LocalSocketStream::connect(stream_name).await {
+        Ok(stream) => stream,
+        Err(err)
+            if matches!(err.kind(), io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused) =>
+        {
+            bail!("{}", i18n::messages().daemon_not_running());
+        }
+        Err(err) => return Err(err.into()),
+    };
+    let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);
 
     // Send request

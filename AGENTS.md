@@ -184,7 +184,7 @@ npm run tauri:dev     # 桌面模式（依赖后端 HTTP 服务）
 1. **Tauri 深度集成**：由桌面端启动/管理 `mcp-center serve`，并在 UI 中显示状态/日志。
 2. **权限配置 UI**：完善项目信息、工具授权的交互和可视化。
 3. **日志/监控**：将守护进程日志流暴露给前端查看。
-4. **跨平台桥接**：当前控制 socket 仅支持 Unix；计划兼容 Windows / 其他通道。
+4. **跨平台桥接**：控制 socket 已迁移至 `interprocess`，统一支持 Unix/Windows；后续需持续验证多平台兼容性。
 5. **API 命名迁移**：长期目标将 HTTP 响应迁移到 camelCase（涉及后端、Specta、前端同步更新）。
 
 ---

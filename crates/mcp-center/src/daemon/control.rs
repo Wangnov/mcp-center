@@ -5,6 +5,11 @@ use std::{
 
 use crate::{Layout, ProjectId, ProjectRecord, ProjectRegistry};
 use anyhow::{Context, Result};
+use interprocess::local_socket::traits::tokio::Listener as _;
+use interprocess::local_socket::{
+    GenericFilePath, ListenerOptions, ToFsName,
+    tokio::prelude::{LocalSocketListener, LocalSocketStream},
+};
 use rmcp::{ServiceExt as _, service::RoleServer, transport::async_rw::AsyncRwTransport};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
@@ -70,32 +75,26 @@ impl ControlMessage {
     }
 }
 
-pub enum ControlServerHandle {
-    Active {
-        task: JoinHandle<()>,
-        socket_path: PathBuf,
-    },
-    #[cfg(not(unix))]
-    Disabled,
+pub struct ControlServerHandle {
+    task: JoinHandle<()>,
+    socket_path: PathBuf,
 }
 
 impl ControlServerHandle {
     pub async fn shutdown(self) {
-        match self {
-            ControlServerHandle::Active { task, socket_path } => {
-                task.abort();
-                let _ = task.await;
-                #[cfg(unix)]
-                {
-                    if let Err(err) = tokio::fs::remove_file(&socket_path).await {
-                        if err.kind() != std::io::ErrorKind::NotFound {
-                            warn!(error = ?err, path = %socket_path.display(), "failed to remove control socket");
-                        }
-                    }
+        self.task.abort();
+        let _ = self.task.await;
+        #[cfg(unix)]
+        {
+            if let Err(err) = tokio::fs::remove_file(&self.socket_path).await {
+                if err.kind() != std::io::ErrorKind::NotFound {
+                    warn!(
+                        error = ?err,
+                        path = %self.socket_path.display(),
+                        "failed to remove control socket"
+                    );
                 }
             }
-            #[cfg(not(unix))]
-            ControlServerHandle::Disabled => {}
         }
     }
 }
@@ -105,42 +104,40 @@ pub async fn spawn_control_server(
     registry: ProjectRegistry,
     manager: Arc<ServerManager>,
 ) -> Result<ControlServerHandle> {
+    let socket_path = layout.daemon_socket_path();
     #[cfg(unix)]
     {
-        use tokio::net::UnixListener;
-
-        let socket_path = layout.daemon_socket_path();
         if tokio::fs::metadata(&socket_path).await.is_ok() {
             tokio::fs::remove_file(&socket_path).await.with_context(|| {
                 format!("failed to remove stale control socket {}", socket_path.display())
             })?;
         }
-
-        let listener = UnixListener::bind(&socket_path)
-            .with_context(|| format!("failed to bind control socket {}", socket_path.display()))?;
-        info!(path = %socket_path.display(), "control socket listening");
-
-        let task = tokio::spawn(run_listener(listener, layout, registry, manager));
-        Ok(ControlServerHandle::Active { task, socket_path })
     }
 
-    #[cfg(not(unix))]
-    {
-        warn!("control socket disabled: unix domain sockets not supported on this platform");
-        Ok(ControlServerHandle::Disabled)
-    }
+    let socket_display = socket_path.to_string_lossy().into_owned();
+    let listener_name = socket_display
+        .as_str()
+        .to_fs_name::<GenericFilePath>()
+        .with_context(|| format!("invalid control socket name {socket_display}"))?;
+    let listener = ListenerOptions::new()
+        .name(listener_name)
+        .create_tokio()
+        .with_context(|| format!("failed to bind control socket {socket_display}"))?;
+    info!(path = %socket_display, "control socket listening");
+
+    let task = tokio::spawn(run_listener(listener, layout, registry, manager));
+    Ok(ControlServerHandle { task, socket_path })
 }
 
-#[cfg(unix)]
 async fn run_listener(
-    listener: tokio::net::UnixListener,
+    listener: LocalSocketListener,
     layout: Layout,
     registry: ProjectRegistry,
     manager: Arc<ServerManager>,
 ) {
     loop {
         match listener.accept().await {
-            Ok((stream, _addr)) => {
+            Ok(stream) => {
                 let layout = layout.clone();
                 let registry = registry.clone();
                 let manager = manager.clone();
@@ -158,9 +155,8 @@ async fn run_listener(
     }
 }
 
-#[cfg(unix)]
 async fn handle_stream(
-    stream: tokio::net::UnixStream,
+    stream: LocalSocketStream,
     layout: Layout,
     registry: ProjectRegistry,
     manager: Arc<ServerManager>,
@@ -249,7 +245,7 @@ async fn handle_stream(
     stream.write_all(&payload).await?;
     stream.write_all(b"\n").await?;
 
-    let (read_half, write_half) = stream.into_split();
+    let (read_half, write_half) = tokio::io::split(stream);
     let transport = AsyncRwTransport::<RoleServer, _, _>::new_server(read_half, write_half);
 
     // 使用 Arc<RwLock> 包装 project_id，允许后续更新
@@ -400,7 +396,6 @@ async fn handle_stream(
     Ok(())
 }
 
-#[cfg(unix)]
 async fn normalize_project_path(path: &PathBuf) -> Option<PathBuf> {
     match tokio::fs::canonicalize(path).await {
         Ok(canonical) => Some(canonical),
@@ -430,9 +425,4 @@ fn parse_file_uri(uri: &str) -> Option<PathBuf> {
     }
 
     None
-}
-
-#[cfg(not(unix))]
-async fn normalize_project_path(path: &PathBuf) -> Option<PathBuf> {
-    Some(path.clone())
 }

@@ -9,14 +9,14 @@
 
 - `connect.rs`：
   - CLI 参数 `ConnectArgs { root, daemon }`。
-  - 主要流程 (`run_unix`):
+  - 主要流程：
     1. `resolve_layout`（可传 root 或 `default_root()`）。
     2. `detect_project_path()`：优先环境变量 → 标记文件 → Git 根 → CWD（全部 `tokio::fs::canonicalize`，大量 debug 日志）。
     3. `connect_or_launch`：尝试连接 control socket，不存在则自动 spawn daemon (`spawn_daemon`) 并等待 60 秒重试。
     4. `perform_handshake`：发送 `ControlMessage::BridgeHello`（含项目路径/agent/PID/metadata），等待 `BridgeReady`，打印 info。
-    5. `tunnel_stdio`：使用 `tokio::io::copy` / `split` 建立 STDIO ↔ UnixStream 双向管道，支持 Ctrl+C 中断。
+    5. `tunnel_stdio`：使用 `tokio::io::copy` / `split` 建立 STDIO ↔ 本地 socket 双向管道，支持 Ctrl+C 中断。
   - `gather_metadata()` 生成 JSON（pid/cwd/exe）。
-  - 在非 Unix 平台直接 bail。
+  - 默认跨平台执行；Windows 也会尝试自动拉起 daemon。
 - `control.rs`：控制协议结构体
   - `BridgeHello`, `BridgeReady`, `ControlMessage`（与 daemon/control.rs 复用）。
 
@@ -30,4 +30,4 @@
 
 - `detect_project_path` 会遍历环境变量和祖先目录，增加了大量 debug 日志；如需减少噪音可调节 `tracing` level。
 - `spawn_daemon` 使用 `setsid` 与临时日志文件，保证 daemon 独立运行；如果单二进制部署需确保 `args.daemon` 正确指向当前可执行文件。
-- 目前仅支持 Unix；若要支持 Windows 需重写 socket/进程逻辑并调整 `ControlServerHandle`。
+- 通过 `interprocess` 实现跨平台连接，Windows 不再提前退出；仅 Unix 分支执行 `setsid` 做终端脱离。

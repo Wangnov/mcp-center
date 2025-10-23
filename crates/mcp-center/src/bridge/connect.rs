@@ -2,32 +2,23 @@
 
 use std::{
     env,
+    io::ErrorKind,
     path::{Path, PathBuf},
     process::{Command as StdCommand, Stdio},
     time::Duration,
 };
 
-use crate::{Layout, default_root};
+use crate::{Layout, ProjectId, bridge::control::ControlMessage, default_root};
 use anyhow::{Context, Result, bail};
 use clap::Args;
+use interprocess::local_socket::traits::tokio::Stream as _;
+use interprocess::local_socket::{GenericFilePath, ToFsName, tokio::prelude::LocalSocketStream};
 use serde_json::{Value, json};
 use tokio::{
     io::{self, AsyncBufReadExt, AsyncWriteExt},
     process::Command as TokioCommand,
 };
 use tracing::{debug, info, warn};
-
-#[cfg(unix)]
-use std::io::ErrorKind;
-
-#[cfg(unix)]
-use tokio::net::UnixStream;
-
-#[cfg(unix)]
-use crate::ProjectId;
-
-#[cfg(unix)]
-use crate::bridge::control::ControlMessage;
 
 #[derive(Args, Debug)]
 pub struct ConnectArgs {
@@ -49,19 +40,10 @@ pub struct ConnectArgs {
 pub async fn run(args: ConnectArgs) -> Result<()> {
     init_tracing();
 
-    #[cfg(not(unix))]
-    {
-        bail!("mcp-center connect currently supports only Unix-like platforms");
-    }
-
-    #[cfg(unix)]
-    {
-        run_unix(args).await
-    }
+    run_impl(args).await
 }
 
-#[cfg(unix)]
-async fn run_unix(args: ConnectArgs) -> Result<()> {
+async fn run_impl(args: ConnectArgs) -> Result<()> {
     let layout = resolve_layout(args.root.clone())?;
     layout.ensure()?;
 
@@ -76,8 +58,7 @@ async fn run_unix(args: ConnectArgs) -> Result<()> {
     tunnel_stdio(stream).await
 }
 
-#[cfg(unix)]
-async fn perform_handshake(stream: &mut UnixStream, project_path: &Path) -> Result<()> {
+async fn perform_handshake(stream: &mut LocalSocketStream, project_path: &Path) -> Result<()> {
     let metadata = gather_metadata().await?;
     let hello = ControlMessage::hello(
         project_path.to_path_buf(),
@@ -109,11 +90,10 @@ async fn perform_handshake(stream: &mut UnixStream, project_path: &Path) -> Resu
     }
 }
 
-#[cfg(unix)]
-async fn tunnel_stdio(stream: UnixStream) -> Result<()> {
+async fn tunnel_stdio(stream: LocalSocketStream) -> Result<()> {
     use tokio::io::{AsyncReadExt, BufReader};
 
-    let (read_half, mut write_half) = stream.into_split();
+    let (read_half, mut write_half) = tokio::io::split(stream);
     let mut stdin = tokio::io::stdin();
     let mut stdout = tokio::io::stdout();
     let mut reader = BufReader::new(read_half);
@@ -148,14 +128,17 @@ async fn tunnel_stdio(stream: UnixStream) -> Result<()> {
     Ok(())
 }
 
-#[cfg(unix)]
-async fn connect_or_launch(layout: &Layout, args: &ConnectArgs) -> Result<UnixStream> {
-    match UnixStream::connect(layout.daemon_socket_path()).await {
+async fn connect_or_launch(layout: &Layout, args: &ConnectArgs) -> Result<LocalSocketStream> {
+    let socket_path = layout.daemon_socket_path();
+    let socket_name = socket_path.to_string_lossy().into_owned();
+
+    match LocalSocketStream::connect(socket_name.as_str().to_fs_name::<GenericFilePath>()?).await {
         Ok(stream) => return Ok(stream),
         Err(err) if matches!(err.kind(), ErrorKind::NotFound | ErrorKind::ConnectionRefused) => {
+            #[cfg(unix)]
             if err.kind() == ErrorKind::ConnectionRefused {
                 warn!("control socket present but no listener, removing stale socket");
-                let _ = std::fs::remove_file(layout.daemon_socket_path());
+                let _ = std::fs::remove_file(&socket_path);
             }
             spawn_daemon(layout, args)?;
         }
@@ -164,7 +147,9 @@ async fn connect_or_launch(layout: &Layout, args: &ConnectArgs) -> Result<UnixSt
 
     let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
     loop {
-        match UnixStream::connect(layout.daemon_socket_path()).await {
+        match LocalSocketStream::connect(socket_name.as_str().to_fs_name::<GenericFilePath>()?)
+            .await
+        {
             Ok(stream) => return Ok(stream),
             Err(err)
                 if matches!(err.kind(), ErrorKind::NotFound | ErrorKind::ConnectionRefused) =>
@@ -179,10 +164,7 @@ async fn connect_or_launch(layout: &Layout, args: &ConnectArgs) -> Result<UnixSt
     }
 }
 
-#[cfg(unix)]
-fn spawn_daemon(_layout: &Layout, args: &ConnectArgs) -> Result<()> {
-    use std::os::unix::process::CommandExt;
-
+fn spawn_daemon(layout: &Layout, args: &ConnectArgs) -> Result<()> {
     // 默认使用当前可执行文件自身（单一二进制模式）
     let daemon_path = args
         .daemon
@@ -197,7 +179,7 @@ fn spawn_daemon(_layout: &Layout, args: &ConnectArgs) -> Result<()> {
     command.arg("serve");
 
     // 保留 stderr 用于调试,但重定向到临时日志文件
-    let log_dir = _layout.logs_dir();
+    let log_dir = layout.logs_dir();
     std::fs::create_dir_all(log_dir)?;
     let log_file = log_dir.join("daemon-startup.log");
     let stderr_file = std::fs::OpenOptions::new()
@@ -214,14 +196,7 @@ fn spawn_daemon(_layout: &Layout, args: &ConnectArgs) -> Result<()> {
         command.arg("--root").arg(root);
     }
 
-    // 使用 setsid 让 daemon 成为新的会话领导者,与父进程完全分离
-    unsafe {
-        command.pre_exec(|| {
-            // 创建新的会话,让进程不再依附于父进程的控制终端
-            libc::setsid();
-            Ok(())
-        });
-    }
+    configure_detached_process(&mut command)?;
 
     command
         .spawn()
@@ -232,6 +207,24 @@ fn spawn_daemon(_layout: &Layout, args: &ConnectArgs) -> Result<()> {
 }
 
 #[cfg(unix)]
+fn configure_detached_process(command: &mut StdCommand) -> Result<()> {
+    use std::os::unix::process::CommandExt;
+
+    unsafe {
+        command.pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
+
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn configure_detached_process(_command: &mut StdCommand) -> Result<()> {
+    Ok(())
+}
+
 async fn detect_project_path() -> Result<PathBuf> {
     debug!("=== DEBUG: Starting project path detection ===");
 
@@ -318,7 +311,6 @@ async fn detect_project_path() -> Result<PathBuf> {
     Ok(final_path)
 }
 
-#[cfg(unix)]
 async fn probe_markers(base: &Path) -> Result<Option<PathBuf>> {
     const FILE_MARKERS: &[&str] = &[".cursor/settings.json", "cursor.json", ".windsurfrc"];
 
@@ -343,7 +335,6 @@ async fn probe_markers(base: &Path) -> Result<Option<PathBuf>> {
     Ok(None)
 }
 
-#[cfg(unix)]
 async fn git_toplevel(base: &Path) -> Result<Option<PathBuf>> {
     let output = TokioCommand::new("git")
         .args(["rev-parse", "--show-toplevel"])
@@ -363,7 +354,6 @@ async fn git_toplevel(base: &Path) -> Result<Option<PathBuf>> {
     }
 }
 
-#[cfg(unix)]
 async fn canonicalize_best_effort(path: &Path) -> Option<PathBuf> {
     match tokio::fs::canonicalize(path).await {
         Ok(canonical) => Some(canonical),
@@ -374,7 +364,6 @@ async fn canonicalize_best_effort(path: &Path) -> Option<PathBuf> {
     }
 }
 
-#[cfg(unix)]
 fn detect_agent_name() -> Option<String> {
     let env_keys = ["MCP_AGENT_NAME", "CURSOR_AGENT", "WINDSURF_AGENT"];
 
@@ -389,7 +378,6 @@ fn detect_agent_name() -> Option<String> {
     None
 }
 
-#[cfg(unix)]
 async fn gather_metadata() -> Result<Value> {
     let cwd = env::current_dir().ok();
     let exe = env::current_exe().ok();
