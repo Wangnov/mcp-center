@@ -18,18 +18,21 @@
 ### 快速开始
 
 1. **Fork 并克隆**
+
    ```bash
    git clone https://github.com/yourusername/mcp-center.git
    cd mcp-center
    ```
 
 2. **安装依赖**
+
    ```bash
    npm install
    cargo build
    ```
 
 3. **运行测试**
+
    ```bash
    # 后端测试
    cargo test-all
@@ -43,6 +46,7 @@
 #### 后端 (Rust)
 
 1. **代码规范**
+
    ```bash
    cargo fmt              # 格式化代码
    cargo lint-fix         # 修复 lint 问题
@@ -59,6 +63,7 @@
 #### 前端 (TypeScript/React)
 
 1. **代码规范**
+
    ```bash
    npm run lint:fix       # 修复 ESLint 问题
    npm run type-check     # TypeScript 类型检查
@@ -72,9 +77,11 @@
    - shadcn/ui 组件与官方保持同步
 
 3. **类型生成**
+
    ```bash
    npm run export-types   # 从 Rust 生成 TypeScript 类型
    ```
+
    - 修改后端 API 结构后必须运行
    - 禁止手动编辑 `api-types.generated.ts`
 
@@ -82,7 +89,7 @@
 
 我们遵循 Conventional Commits 规范：
 
-```
+```text
 <类型>(<范围>): <主题>
 
 <正文>
@@ -91,6 +98,7 @@
 ```
 
 **类型说明：**
+
 - `feat`: 新功能
 - `fix`: Bug 修复
 - `docs`: 文档修改
@@ -101,7 +109,8 @@
 - `chore`: 工具链、依赖、构建配置
 
 **示例：**
-```
+
+```text
 feat(backend): Add tool-level permission control
 - Implement ToolPermission enum (AllowList/DenyList)
 - Add tool filtering in HostService
@@ -111,7 +120,7 @@ Summary: Enables fine-grained control over which tools
 projects can access from MCP servers.
 ```
 
-```
+```text
 fix(frontend): Resolve emoji rendering in health status
 - Replace emoji with Lucide Circle icons
 - Add proper accessibility attributes
@@ -123,6 +132,7 @@ fix(frontend): Resolve emoji rendering in health status
 ### Pull Request 流程
 
 1. **创建功能分支**
+
    ```bash
    git checkout -b feat/your-feature-name
    ```
@@ -133,6 +143,7 @@ fix(frontend): Resolve emoji rendering in health status
    - 同步更新文档
 
 3. **测试修改**
+
    ```bash
    # 后端
    cargo fmt && cargo lint-fix && cargo test-all
@@ -148,7 +159,7 @@ fix(frontend): Resolve emoji rendering in health status
 
 ### 项目结构
 
-```
+```text
 mcp-center/
 ├── crates/
 │   ├── mcp-center/           # 后端：CLI、守护进程、HTTP API
@@ -202,18 +213,21 @@ Thank you for your interest in contributing to MCP Center! This document provide
 ### Getting Started
 
 1. **Fork and Clone**
+
    ```bash
    git clone https://github.com/yourusername/mcp-center.git
    cd mcp-center
    ```
 
 2. **Install Dependencies**
+
    ```bash
    npm install
    cargo build
    ```
 
 3. **Run Tests**
+
    ```bash
    # Backend tests
    cargo test-all
@@ -227,6 +241,7 @@ Thank you for your interest in contributing to MCP Center! This document provide
 #### Backend (Rust)
 
 1. **Code Style**
+
    ```bash
    cargo fmt              # Format code
    cargo lint-fix         # Fix linting issues
@@ -243,6 +258,7 @@ Thank you for your interest in contributing to MCP Center! This document provide
 #### Frontend (TypeScript/React)
 
 1. **Code Style**
+
    ```bash
    npm run lint:fix       # Fix ESLint issues
    npm run type-check     # TypeScript type checking
@@ -256,9 +272,11 @@ Thank you for your interest in contributing to MCP Center! This document provide
    - Keep shadcn/ui components in sync with official versions
 
 3. **Type Generation**
+
    ```bash
    npm run export-types   # Generate TypeScript types from Rust
    ```
+
    - Run after changing backend API structures
    - Never manually edit `api-types.generated.ts`
 
@@ -266,7 +284,7 @@ Thank you for your interest in contributing to MCP Center! This document provide
 
 We follow Conventional Commits specification:
 
-```
+```text
 <type>(<scope>): <subject>
 
 <body>
@@ -275,6 +293,7 @@ We follow Conventional Commits specification:
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -285,7 +304,8 @@ We follow Conventional Commits specification:
 - `chore`: Tooling, dependencies, build config
 
 **Examples:**
-```
+
+```text
 feat(backend): Add tool-level permission control
 - Implement ToolPermission enum (AllowList/DenyList)
 - Add tool filtering in HostService
@@ -295,7 +315,7 @@ Summary: Enables fine-grained control over which tools
 projects can access from MCP servers.
 ```
 
-```
+```text
 fix(frontend): Resolve emoji rendering in health status
 - Replace emoji with Lucide Circle icons
 - Add proper accessibility attributes
@@ -307,6 +327,7 @@ Fixes #123
 ### Pull Request Process
 
 1. **Create a Feature Branch**
+
    ```bash
    git checkout -b feat/your-feature-name
    ```
@@ -317,6 +338,7 @@ Fixes #123
    - Update documentation as needed
 
 3. **Test Your Changes**
+
    ```bash
    # Backend
    cargo fmt && cargo lint-fix && cargo test-all
@@ -332,7 +354,7 @@ Fixes #123
 
 ### Project Structure
 
-```
+```text
 mcp-center/
 ├── crates/
 │   ├── mcp-center/           # Backend: CLI, daemon, HTTP API
