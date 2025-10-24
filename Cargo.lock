@@ -1050,6 +1050,7 @@ dependencies = [
  "axum",
  "blake3",
  "clap",
+ "futures-core",
  "interprocess",
  "libc",
  "locale_config",
@@ -1065,6 +1066,7 @@ dependencies = [
  "thiserror 2.0.17",
  "time",
  "tokio",
+ "tokio-stream",
  "toml_edit",
  "tower 0.4.13",
  "tower-http 0.5.2",
@@ -2145,6 +2147,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

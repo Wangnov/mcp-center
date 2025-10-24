@@ -10,6 +10,7 @@ use std::{
 
 use anyhow::Result;
 use blake3;
+use time::{Date, OffsetDateTime};
 
 use crate::{config::ServerConfig, error::CoreError};
 
@@ -24,6 +25,7 @@ pub struct Layout {
     config_dir: PathBuf,
     servers_dir: PathBuf,
     logs_dir: PathBuf,
+    server_logs_dir: PathBuf,
     state_dir: PathBuf,
     projects_dir: PathBuf,
 }
@@ -34,10 +36,19 @@ impl Layout {
         let config_dir = root.join("config");
         let servers_dir = config_dir.join("servers");
         let logs_dir = root.join("logs");
+        let server_logs_dir = logs_dir.join("servers");
         let state_dir = root.join("state");
         let projects_dir = root.join("projects");
 
-        Self { root, config_dir, servers_dir, logs_dir, state_dir, projects_dir }
+        Self {
+            root,
+            config_dir,
+            servers_dir,
+            logs_dir,
+            server_logs_dir,
+            state_dir,
+            projects_dir,
+        }
     }
 
     /// Ensure that all directories exist on disk.
@@ -47,6 +58,7 @@ impl Layout {
             self.config_dir(),
             self.servers_dir(),
             self.logs_dir(),
+            self.server_logs_dir(),
             self.state_dir(),
             self.projects_dir(),
         ] {
@@ -80,6 +92,11 @@ impl Layout {
         &self.logs_dir
     }
 
+    /// Directory that stores per-server logs.
+    pub fn server_logs_dir(&self) -> &Path {
+        &self.server_logs_dir
+    }
+
     /// Directory that stores runtime state (pid files, sockets, etc).
     pub fn state_dir(&self) -> &Path {
         &self.state_dir
@@ -97,7 +114,19 @@ impl Layout {
 
     /// Path to a log file by server id.
     pub fn server_log_path(&self, id: &str) -> PathBuf {
-        self.logs_dir().join(format!("{id}.log"))
+        let today = OffsetDateTime::now_utc().date();
+        self.server_log_file(id, today)
+    }
+
+    /// Directory for all log files of a specific server.
+    pub fn server_log_dir(&self, id: &str) -> PathBuf {
+        self.server_logs_dir().join(id)
+    }
+
+    /// Specific log file for a given server and date (UTC, YYYYMMDD.log).
+    pub fn server_log_file(&self, id: &str, date: Date) -> PathBuf {
+        let filename = format!("{:04}{:02}{:02}", date.year(), u8::from(date.month()), date.day());
+        self.server_log_dir(id).join(format!("{filename}.log"))
     }
 
     /// Path to a pid file by server id.

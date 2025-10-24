@@ -5,29 +5,34 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     sync::Arc,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use anyhow::Result;
 use axum::{
     Json, Router,
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, HeaderName, Method, Request, StatusCode, header},
     middleware::{self, Next},
+    response::sse::{Event, KeepAlive, Sse},
     response::{IntoResponse, Response},
     routing::{get, patch, post},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, net::TcpListener, task::JoinHandle};
+use tokio_stream::StreamExt;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info, warn};
 
 use crate::{
     CoreError, Layout,
     config::{ServerConfig, ServerDefinition, ServerProtocol},
-    daemon::server_manager::{ServerManager, ServerSnapshot},
+    daemon::{
+        logging::{self, LogEntry},
+        server_manager::{ServerManager, ServerSnapshot},
+    },
     project::{ProjectId, ProjectRecord, ProjectRegistry, ToolCustomization, ToolPermission},
 };
 
@@ -79,6 +84,54 @@ pub struct ToolSummary {
     pub description: Option<String>,
     pub server_id: String,
     pub server_name: String,
+}
+
+#[derive(Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogFileSummary {
+    pub file: String,
+    pub size_bytes: u64,
+    pub line_count: u64,
+    pub from: Option<String>,
+    pub to: Option<String>,
+}
+
+#[derive(Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogServerSummary {
+    pub server_id: String,
+    pub files: Vec<LogFileSummary>,
+}
+
+#[derive(Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogListResponse {
+    pub servers: Vec<LogServerSummary>,
+}
+
+#[derive(Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogListQuery {
+    pub server_id: Option<String>,
+}
+
+#[derive(Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEntriesQuery {
+    pub server_id: String,
+    pub file: Option<String>,
+    pub cursor: Option<u64>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEntriesResponse {
+    pub server_id: String,
+    pub file: String,
+    pub entries: Vec<LogEntry>,
+    pub next_cursor: Option<u64>,
+    pub has_more: bool,
 }
 
 #[derive(Serialize, Type)]
@@ -331,6 +384,9 @@ pub fn build_router(state: HttpState) -> Router {
         .route("/api/project/tools/deny", post(project_deny_tools))
         .route("/api/project/tool/description", post(project_set_tool_desc))
         .route("/api/project/tool/description/reset", post(project_reset_tool_desc))
+        .route("/api/logs/servers", get(list_server_logs))
+        .route("/api/logs/entries", get(get_log_entries))
+        .route("/api/logs/tail/:server_id", get(tail_server_logs))
         .layer(middleware::from_fn_with_state(auth_state, authenticate))
         .layer(middleware::from_fn(attach_client_kind))
         .layer(cors)
@@ -345,6 +401,136 @@ async fn authenticate(
     let kind = req.extensions().get::<ClientKind>().copied().unwrap_or_default();
     auth.verify(kind, &req)?;
     Ok(next.run(req).await)
+}
+
+async fn list_server_logs(
+    State(state): State<HttpState>,
+    Query(query): Query<LogListQuery>,
+) -> Result<Json<LogListResponse>, ApiError> {
+    let requested = query.server_id.clone();
+    let mut server_ids = BTreeSet::new();
+
+    if let Some(id) = requested.clone() {
+        server_ids.insert(id);
+    } else {
+        let configs = state.layout.list_server_configs().map_err(ApiError::from)?;
+        for config in configs {
+            server_ids.insert(config.definition().id.clone());
+        }
+
+        if let Ok(mut entries) = fs::read_dir(state.layout.server_logs_dir()).await {
+            while let Some(entry) =
+                entries.next_entry().await.map_err(|err| ApiError::internal(err.to_string()))?
+            {
+                let file_type =
+                    entry.file_type().await.map_err(|err| ApiError::internal(err.to_string()))?;
+                if file_type.is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        server_ids.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    let mut servers = Vec::new();
+    for server_id in server_ids {
+        let files = logging::list_server_log_files(&state.layout, &server_id)
+            .await
+            .map_err(ApiError::from)?;
+        if files.is_empty() && requested.is_none() {
+            continue;
+        }
+        let summaries = files
+            .into_iter()
+            .map(|meta| LogFileSummary {
+                file: meta.file_name,
+                size_bytes: meta.file_size,
+                line_count: meta.line_count,
+                from: meta.first_timestamp,
+                to: meta.last_timestamp,
+            })
+            .collect();
+        servers.push(LogServerSummary { server_id, files: summaries });
+    }
+
+    Ok(Json(LogListResponse { servers }))
+}
+
+async fn get_log_entries(
+    State(state): State<HttpState>,
+    Query(query): Query<LogEntriesQuery>,
+) -> Result<Json<LogEntriesResponse>, ApiError> {
+    if let Some(file) = &query.file {
+        if file.contains('/') || file.contains('\\') {
+            return Err(ApiError::bad_request("invalid file name"));
+        }
+    }
+
+    let files = logging::list_server_log_files(&state.layout, &query.server_id)
+        .await
+        .map_err(ApiError::from)?;
+    if files.is_empty() {
+        return Err(ApiError::not_found(format!(
+            "no log files found for server '{}'",
+            query.server_id
+        )));
+    }
+
+    let target_name = match &query.file {
+        Some(name) => name.clone(),
+        None => files
+            .last()
+            .map(|meta| meta.file_name.clone())
+            .unwrap_or_else(|| files[0].file_name.clone()),
+    };
+
+    let target = files.into_iter().find(|meta| meta.file_name == target_name).ok_or_else(|| {
+        ApiError::not_found(format!(
+            "log file '{}' not found for server '{}'",
+            target_name, query.server_id
+        ))
+    })?;
+
+    let limit = query.limit.unwrap_or(100).clamp(1, 1000);
+    let offset = query.cursor.unwrap_or(0);
+    let page = logging::read_log_entries(&target.path, offset, limit)
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok(Json(LogEntriesResponse {
+        server_id: query.server_id,
+        file: target.file_name,
+        entries: page.entries,
+        next_cursor: page.next_offset,
+        has_more: page.has_more,
+    }))
+}
+
+async fn tail_server_logs(
+    State(state): State<HttpState>,
+    Path(server_id): Path<String>,
+) -> Result<Sse<impl futures_core::stream::Stream<Item = Result<Event, Infallible>>>, ApiError> {
+    let handle = state.manager.get_log_handle(&server_id).ok_or_else(|| {
+        ApiError::not_found(format!("server '{}' is not running or has no log stream", server_id))
+    })?;
+
+    let stream = logging::stream_server_logs(&handle).filter_map(|item| match item {
+        Ok(entry) => match serde_json::to_string(&*entry) {
+            Ok(payload) => Some(Ok(Event::default().data(payload))),
+            Err(err) => {
+                warn!(error = ?err, "failed to serialise log entry for SSE");
+                None
+            }
+        },
+        Err(err) => {
+            warn!(error = ?err, "log tail stream lagged");
+            None
+        }
+    });
+
+    Ok(Sse::new(stream)
+        .keep_alive(KeepAlive::new().interval(Duration::from_secs(15)).text("keep-alive")))
 }
 
 pub async fn spawn_http_server(state: HttpState, addr: SocketAddr) -> Result<HttpServerHandle> {

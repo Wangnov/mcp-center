@@ -145,6 +145,10 @@ impl ServerManager {
             .collect()
     }
 
+    pub fn get_log_handle(&self, server_id: &str) -> Option<ServerLogHandle> {
+        self.servers.read().unwrap().get(server_id).map(|server| server.log.clone())
+    }
+
     pub async fn list_servers(&self) -> Vec<ServerSnapshot> {
         let handles = {
             let guard = self.servers.read().unwrap();
@@ -353,11 +357,10 @@ struct ServerRuntime {
 
 impl ManagedServer {
     async fn launch(layout: &Layout, definition: ServerDefinition) -> Result<Arc<Self>> {
-        let log_path = layout.server_log_path(&definition.id);
         let needs_refresh = Arc::new(AtomicBool::new(true));
         let server_name = definition.name.clone().unwrap_or_else(|| definition.id.clone());
-        let log =
-            ServerLogHandle::new(definition.id.clone(), server_name, log_path.clone()).await?;
+        let log_dir = layout.server_log_dir(&definition.id);
+        let log = ServerLogHandle::new(definition.id.clone(), server_name, log_dir).await?;
         let adapter = ServerAdapter::new(log.clone(), needs_refresh.clone());
 
         match definition.protocol {
