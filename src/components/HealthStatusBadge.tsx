@@ -47,7 +47,7 @@ export function HealthStatusBadge() {
       queryFn: async () => {
         const result = await getHealth();
         if (!result) {
-          throw new Error(t("health_check_failed") || "Health check failed");
+          throw new Error(t("health_check_failed", { defaultValue: "Health check failed" }));
         }
         return result;
       },
@@ -79,7 +79,7 @@ export function HealthStatusBadge() {
           </div>
         </TooltipTrigger>
         <TooltipContent side="right">
-          <p>{t("checking") || "检查中..."}</p>
+          <p>{t("checking", { defaultValue: "检查中..." })}</p>
         </TooltipContent>
       </Tooltip>
     );
@@ -109,14 +109,14 @@ export function HealthStatusBadge() {
           <div className="flex items-center gap-2">
             <Circle className={`size-4 fill-current ${config.iconColor}`} />
             <p className="font-semibold">
-              {t("server_status") || "服务器状态"}: {config.label}
+              {t("server_status", { defaultValue: "服务器状态" })}: {config.label}
             </p>
           </div>
 
           {data && (
             <div className="text-xs text-muted-foreground">
               <p>
-                {t("last_check") || "最后检查"}:{" "}
+                {t("last_check", { defaultValue: "最后检查" })}:{" "}
                 {new Date().toLocaleTimeString()}
               </p>
             </div>
@@ -125,7 +125,7 @@ export function HealthStatusBadge() {
           {isError && error && (
             <div className="text-xs text-destructive">
               <p>
-                {t("error") || "错误"}: {error.message}
+                {t("error", { defaultValue: "错误" })}: {error.message}
               </p>
             </div>
           )}
@@ -133,15 +133,15 @@ export function HealthStatusBadge() {
           <div className="pt-2 border-t space-y-1 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Circle className="size-3 fill-current text-green-500" />
-              <span>{t("health_all_ok") || "所有服务正常"}</span>
+              <span>{t("health_all_ok", { defaultValue: "所有服务正常" })}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Circle className="size-3 fill-current text-yellow-500" />
-              <span>{t("health_degraded") || "部分服务降级"}</span>
+              <span>{t("health_degraded", { defaultValue: "部分服务降级" })}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Circle className="size-3 fill-current text-red-500" />
-              <span>{t("health_unavailable") || "服务不可用"}</span>
+              <span>{t("health_unavailable", { defaultValue: "服务不可用" })}</span>
             </div>
           </div>
         </div>

@@ -80,8 +80,8 @@ export function createColumns(
             <TooltipContent>
               <p>
                 {expanded
-                  ? t("collapse") || "收起详情"
-                  : t("expand") || "展开详情"}
+                  ? t("collapse", { defaultValue: "收起详情" })
+                  : t("expand", { defaultValue: "展开详情" })}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -98,7 +98,7 @@ export function createColumns(
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="h-8 px-2"
           >
-            {t("name") || "名称"}
+            {t("name", { defaultValue: "名称" })}
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -116,7 +116,7 @@ export function createColumns(
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="h-8 px-2"
           >
-            {t("protocol") || "协议"}
+            {t("protocol", { defaultValue: "协议" })}
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -132,7 +132,7 @@ export function createColumns(
     {
       accessorKey: "toolCount",
       header: () => (
-        <div className="text-right">{t("tool_count") || "工具数"}</div>
+        <div className="text-right">{t("tool_count", { defaultValue: "工具数" })}</div>
       ),
       cell: ({ row }) => {
         return (
@@ -151,7 +151,7 @@ export function createColumns(
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="h-8 px-2"
           >
-            {t("last_seen") || "最后使用"}
+            {t("last_seen", { defaultValue: "最后使用" })}
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -166,7 +166,7 @@ export function createColumns(
     },
     {
       accessorKey: "enabled",
-      header: () => <div>{t("status") || "状态"}</div>,
+      header: () => <div>{t("status", { defaultValue: "状态" })}</div>,
       cell: ({ row }) => {
         const server = row.original;
         return (
@@ -178,11 +178,11 @@ export function createColumns(
             />
             {server.enabled ? (
               <Badge className="bg-green-500/10 text-green-600 border-green-500/20 animate-pulse">
-                ● {t("enabled") || "已启用"}
+                ● {t("enabled", { defaultValue: "已启用" })}
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-muted-foreground">
-                {t("disabled") || "已禁用"}
+                {t("disabled", { defaultValue: "已禁用" })}
               </Badge>
             )}
           </div>
@@ -191,7 +191,7 @@ export function createColumns(
     },
     {
       id: "actions",
-      header: () => <div className="text-right">{t("actions") || "操作"}</div>,
+      header: () => <div className="text-right">{t("actions", { defaultValue: "操作" })}</div>,
       cell: ({ row }) => {
         const server = row.original;
         return (
@@ -199,19 +199,19 @@ export function createColumns(
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">{t("actions") || "操作"}</span>
+                  <span className="sr-only">{t("actions", { defaultValue: "操作" })}</span>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{t("actions") || "操作"}</DropdownMenuLabel>
+                <DropdownMenuLabel>{t("actions", { defaultValue: "操作" })}</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => onView(server)}>
                   <Eye className="mr-2 h-4 w-4" />
-                  {t("view_details") || "查看详情"}
+                  {t("view_details", { defaultValue: "查看详情" })}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onEdit(server)}>
                   <Edit className="mr-2 h-4 w-4" />
-                  {t("edit_server") || "编辑服务器"}
+                  {t("edit_server", { defaultValue: "编辑服务器" })}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -219,7 +219,7 @@ export function createColumns(
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {t("delete_server") || "删除服务器"}
+                  {t("delete_server", { defaultValue: "删除服务器" })}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

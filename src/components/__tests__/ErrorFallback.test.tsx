@@ -38,4 +38,18 @@ describe("ErrorFallback", () => {
 
     expect(document.querySelector("pre")).toBeNull();
   });
+
+  it("reloads the page when refresh button is clicked", async () => {
+    const reloadSpy = vi.spyOn(window.location, "reload").mockImplementation(
+      () => {},
+    );
+    const user = userEvent.setup();
+
+    render(<ErrorFallback error={new Error("Refresh")} resetErrorBoundary={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "刷新页面" }));
+
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    reloadSpy.mockRestore();
+  });
 });

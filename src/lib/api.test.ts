@@ -83,6 +83,17 @@ describe("api client", () => {
     await expect(listProjects()).rejects.toThrowError("AUTH_REQUIRED");
   });
 
+  it("throws when project list response is empty", async () => {
+    (global.fetch as unknown as Mock).mockResolvedValue(
+      new Response("", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await expect(listProjects()).rejects.toThrowError("AUTH_REQUIRED");
+  });
+
   it("sends POST payload to add server", async () => {
     (global.fetch as unknown as Mock).mockResolvedValue(
       new Response(JSON.stringify({ id: "id", name: "demo" }), {

@@ -1,7 +1,10 @@
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
-import { useKeyboardShortcuts } from "./use-keyboard-shortcuts";
+import { vi, expect, describe, it } from "vitest";
+import {
+  useKeyboardShortcuts,
+  getModifierSymbol,
+} from "./use-keyboard-shortcuts";
 
 function TestComponent({
   shortcut,
@@ -53,6 +56,48 @@ describe("useKeyboardShortcuts", () => {
     ).toBe(true);
 
     addSpy.mockRestore();
-    removeSpy.mockRestore();
+   removeSpy.mockRestore();
+  });
+
+  it("honours meta, alt and shift modifier requirements", () => {
+    const callback = vi.fn();
+
+    render(
+      <TestComponent
+        shortcut={{
+          key: "k",
+          meta: true,
+          alt: false,
+          shift: true,
+          callback,
+        }}
+      />,
+    );
+
+    const event = new KeyboardEvent("keydown", {
+      key: "k",
+      metaKey: true,
+      altKey: false,
+      shiftKey: true,
+    });
+
+    window.dispatchEvent(event);
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses mac symbol when platform is macOS", () => {
+    const original = navigator.platform;
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      value: "MacIntel",
+    });
+
+    expect(getModifierSymbol()).toBe("⌘");
+
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      value: original,
+    });
+    expect(getModifierSymbol()).toBe("Ctrl");
   });
 });

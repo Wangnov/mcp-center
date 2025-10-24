@@ -60,4 +60,14 @@ describe("buildAddServerPayload", () => {
     expect(payload.command).toBeUndefined();
     expect(payload.endpoint).toBe("https://api");
   });
+
+  it("falls back to empty command when parsing whitespace", () => {
+    const payload = buildAddServerPayload({
+      ...baseValues,
+      command: "   ",
+    });
+
+    expect(payload.command).toBe("");
+    expect(payload.args).toBe("");
+  });
 });

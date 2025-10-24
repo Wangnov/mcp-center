@@ -24,7 +24,7 @@ describe("ToolDetailDialog", () => {
     expect(
       screen.getByRole("heading", { name: /resolve-library-id/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("tool_description")).toBeInTheDocument();
+    expect(screen.getByText("工具描述")).toBeInTheDocument();
     expect(screen.getByText("Resolve library metadata")).toBeInTheDocument();
   });
 
@@ -37,6 +37,6 @@ describe("ToolDetailDialog", () => {
       />,
     );
 
-    expect(screen.getByText("no_description")).toBeInTheDocument();
+    expect(screen.getByText("暂无描述")).toBeInTheDocument();
   });
 });

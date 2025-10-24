@@ -49,7 +49,7 @@ export function ToolDetailDialog({
           {/* 工具名称 */}
           <div>
             <h4 className="text-sm font-semibold mb-2 text-muted-foreground">
-              {t("tool_name") || "工具名称"}
+              {t("tool_name", { defaultValue: "工具名称" })}
             </h4>
             <code className="block px-3 py-2 bg-muted rounded text-sm font-mono break-all">
               {tool.name}
@@ -59,7 +59,7 @@ export function ToolDetailDialog({
           {/* 所属服务器 */}
           <div>
             <h4 className="text-sm font-semibold mb-2 text-muted-foreground">
-              {t("belongs_to_server") || "所属服务器"}
+              {t("belongs_to_server", { defaultValue: "所属服务器" })}
             </h4>
             <div className="flex items-center gap-2">
               <Badge variant="secondary">{tool.serverName}</Badge>
@@ -72,7 +72,7 @@ export function ToolDetailDialog({
           {/* 工具描述 */}
           <div>
             <h4 className="text-sm font-semibold mb-2 text-muted-foreground">
-              {t("tool_description") || "工具描述"}
+              {t("tool_description", { defaultValue: "工具描述" })}
             </h4>
             {tool.description ? (
               <div className="px-3 py-2 bg-muted/50 rounded text-sm whitespace-pre-wrap break-words">
@@ -80,7 +80,7 @@ export function ToolDetailDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground italic">
-                {t("no_description") || "暂无描述"}
+                {t("no_description", { defaultValue: "暂无描述" })}
               </p>
             )}
           </div>

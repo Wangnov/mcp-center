@@ -142,47 +142,47 @@ export function ServerDetailDrawer({
                 <section>
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    {t("basic_info") || "基本信息"}
+                    {t("basic_info", { defaultValue: "基本信息" })}
                   </h3>
                   <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/30">
                     <div>
                       <dt className="text-sm text-muted-foreground mb-1">
-                        {t("server_id") || "服务器 ID"}
+                        {t("server_id", { defaultValue: "服务器 ID" })}
                       </dt>
                       <dd className="text-sm font-mono">{serverData.id}</dd>
                     </div>
                     <div>
                       <dt className="text-sm text-muted-foreground mb-1">
-                        {t("status") || "状态"}
+                        {t("status", { defaultValue: "状态" })}
                       </dt>
                       <dd>
                         {serverData.enabled ? (
                           <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
-                            ● {t("enabled") || "已启用"}
+                            ● {t("enabled", { defaultValue: "已启用" })}
                           </Badge>
                         ) : (
                           <Badge variant="secondary">
-                            {t("disabled") || "已禁用"}
+                            {t("disabled", { defaultValue: "已禁用" })}
                           </Badge>
                         )}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm text-muted-foreground mb-1">
-                        {t("tool_count") || "工具数量"}
+                        {t("tool_count", { defaultValue: "工具数量" })}
                       </dt>
                       <dd className="text-sm font-semibold">{toolCount}</dd>
                     </div>
                     <div>
                       <dt className="text-sm text-muted-foreground mb-1">
-                        {t("created_at") || "创建时间"}
+                        {t("created_at", { defaultValue: "创建时间" })}
                       </dt>
                       <dd className="text-sm">{formatTimestamp(createdAt)}</dd>
                     </div>
                     {lastSeen && (
                       <div>
                         <dt className="text-sm text-muted-foreground mb-1">
-                          {t("last_seen") || "最后使用"}
+                          {t("last_seen", { defaultValue: "最后使用" })}
                         </dt>
                         <dd className="text-sm">{formatTimestamp(lastSeen)}</dd>
                       </div>
@@ -195,12 +195,12 @@ export function ServerDetailDrawer({
                   <section>
                     <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                       <Terminal className="h-5 w-5" />
-                      {t("startup_config") || "启动配置"}
+                      {t("startup_config", { defaultValue: "启动配置" })}
                     </h3>
                     <div className="space-y-3 p-4 rounded-lg bg-muted/30">
                       <div>
                         <span className="text-sm text-muted-foreground">
-                          {t("command") || "命令"}:
+                          {t("command", { defaultValue: "命令" })}:
                         </span>
                         <code className="block mt-1 px-3 py-2 bg-muted rounded text-sm font-mono">
                           {serverData.command}
@@ -209,7 +209,7 @@ export function ServerDetailDrawer({
                       {serverData.args && serverData.args.length > 0 && (
                         <div>
                           <span className="text-sm text-muted-foreground">
-                            {t("arguments") || "参数"}:
+                            {t("arguments", { defaultValue: "参数" })}:
                           </span>
                           <code className="block mt-1 px-3 py-2 bg-muted rounded text-sm font-mono">
                             {serverData.args.join(" ")}
@@ -227,11 +227,11 @@ export function ServerDetailDrawer({
                     <section>
                       <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                         <Globe className="h-5 w-5" />
-                        {t("remote_config") || "远程配置"}
+                        {t("remote_config", { defaultValue: "远程配置" })}
                       </h3>
                       <div className="p-4 rounded-lg bg-muted/30">
                         <span className="text-sm text-muted-foreground">
-                          {t("endpoint") || "端点"}:
+                          {t("endpoint", { defaultValue: "端点" })}:
                         </span>
                         <code className="block mt-1 px-3 py-2 bg-muted rounded text-sm font-mono break-all">
                           {serverData.url}
@@ -245,7 +245,7 @@ export function ServerDetailDrawer({
                   <section>
                     <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                       <Key className="h-5 w-5" />
-                      {t("environment_variables") || "环境变量"} (
+                      {t("environment_variables", { defaultValue: "环境变量" })} (
                       {Object.keys(serverData.env).length})
                     </h3>
                     <div className="space-y-2 p-4 rounded-lg bg-muted/30">
@@ -294,7 +294,7 @@ export function ServerDetailDrawer({
                 {/* 工具列表 */}
                 <section>
                   <h3 className="text-lg font-semibold mb-3">
-                    {t("tools") || "工具列表"} ({tools.length})
+                    {t("tools", { defaultValue: "工具列表" })} ({tools.length})
                   </h3>
                   {tools.length > 0 ? (
                     <div className="space-y-2">
@@ -327,7 +327,7 @@ export function ServerDetailDrawer({
                     <div className="p-8 text-center text-muted-foreground">
                       <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">
-                        {t("no_tools_available") || "暂无工具"}
+                        {t("no_tools_available", { defaultValue: "暂无工具" })}
                       </p>
                     </div>
                   )}
@@ -348,7 +348,7 @@ export function ServerDetailDrawer({
                   }}
                   className="flex-1"
                 >
-                  {t("edit_server") || "编辑服务器"}
+                  {t("edit_server", { defaultValue: "编辑服务器" })}
                 </Button>
               )}
               {onDelete && (
@@ -360,12 +360,12 @@ export function ServerDetailDrawer({
                   }}
                   className="flex-1"
                 >
-                  {t("delete_server") || "删除服务器"}
+                  {t("delete_server", { defaultValue: "删除服务器" })}
                 </Button>
               )}
               <DrawerClose asChild>
                 <Button variant="outline" className="flex-1">
-                  {t("close") || "关闭"}
+                  {t("close", { defaultValue: "关闭" })}
                 </Button>
               </DrawerClose>
             </div>

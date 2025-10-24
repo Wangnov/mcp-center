@@ -118,11 +118,11 @@ export function AddServerDialog({
       queryClient.invalidateQueries({ queryKey: ["servers"] });
       setOpen(false); // Close dialog on success
       form.reset();
-      toast.success(t("server_added_success") || "服务器添加成功");
+      toast.success(t("server_added_success", { defaultValue: "服务器添加成功" }));
     },
     onError: (error) => {
       console.error("Failed to add server:", error);
-      toast.error(t("server_added_error") || "添加服务器失败", {
+      toast.error(t("server_added_error", { defaultValue: "添加服务器失败" }), {
         description: error.message,
       });
     },

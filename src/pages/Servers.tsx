@@ -126,12 +126,12 @@ export function ServersPage() {
       if (result?.warning) {
         toast.warning(t("mcp_toggle_warning", { reason: result.warning }));
       } else {
-        toast.success(t("mcp_toggle_success") || "服务器状态已更新");
+        toast.success(t("mcp_toggle_success", { defaultValue: "服务器状态已更新" }));
       }
     },
     onError: (mutationError) => {
       console.error("Failed to toggle MCP server", mutationError);
-      toast.error(t("mcp_toggle_error") || "切换服务器状态失败", {
+      toast.error(t("mcp_toggle_error", { defaultValue: "切换服务器状态失败" }), {
         description: mutationError.message,
       });
     },
@@ -147,11 +147,11 @@ export function ServersPage() {
       queryClient.invalidateQueries({ queryKey: ["servers"] });
       setDeleteDialogOpen(false);
       setServerToDelete(null);
-      toast.success(t("mcp_delete_success") || "服务器已删除");
+      toast.success(t("mcp_delete_success", { defaultValue: "服务器已删除" }));
     },
     onError: (mutationError) => {
       console.error("Failed to delete MCP server", mutationError);
-      toast.error(t("mcp_delete_error") || "删除服务器失败", {
+      toast.error(t("mcp_delete_error", { defaultValue: "删除服务器失败" }), {
         description: mutationError.message,
       });
     },
@@ -206,10 +206,10 @@ export function ServersPage() {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return t("just_now") || "刚刚";
-    if (minutes < 60) return `${minutes}${t("minutes_ago") || "分钟前"}`;
-    if (hours < 24) return `${hours}${t("hours_ago") || "小时前"}`;
-    if (days < 7) return `${days}${t("days_ago") || "天前"}`;
+    if (minutes < 1) return t("just_now", { defaultValue: "刚刚" });
+    if (minutes < 60) return `${minutes}${t("minutes_ago", { defaultValue: "分钟前" })}`;
+    if (hours < 24) return `${hours}${t("hours_ago", { defaultValue: "小时前" })}`;
+    if (days < 7) return `${days}${t("days_ago", { defaultValue: "天前" })}`;
     return date.toLocaleDateString();
   };
 
@@ -244,7 +244,7 @@ export function ServersPage() {
         <div>
           <h1 className="text-3xl font-bold">{t("mcp_servers")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t("manage_mcp_servers") || "管理您的 MCP 服务器连接"}
+            {t("manage_mcp_servers", { defaultValue: "管理您的 MCP 服务器连接" })}
           </p>
         </div>
         <AddServerDialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -265,7 +265,7 @@ export function ServersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder={t("search_servers") || "搜索服务器..."}
+              placeholder={t("search_servers", { defaultValue: "搜索服务器..." })}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
@@ -279,7 +279,7 @@ export function ServersPage() {
               size="sm"
               onClick={() => setProtocolFilter(null)}
             >
-              {t("all") || "全部"}
+              {t("all", { defaultValue: "全部" })}
             </Button>
             <Button
               variant={protocolFilter === "stdio" ? "default" : "outline"}
@@ -313,7 +313,7 @@ export function ServersPage() {
                 setStatusFilter((prev) => (prev === true ? null : true))
               }
             >
-              {t("enabled") || "已启用"}
+              {t("enabled", { defaultValue: "已启用" })}
             </Button>
             <Button
               variant={statusFilter === false ? "default" : "outline"}
@@ -322,7 +322,7 @@ export function ServersPage() {
                 setStatusFilter((prev) => (prev === false ? null : false))
               }
             >
-              {t("disabled") || "已禁用"}
+              {t("disabled", { defaultValue: "已禁用" })}
             </Button>
           </div>
         </div>
@@ -331,14 +331,14 @@ export function ServersPage() {
         {servers && (
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <span>
-              {t("total_servers") || "总计"} {servers.length}
+              {t("total_servers", { defaultValue: "总计" })} {servers.length}
             </span>
             <span>
-              {t("enabled") || "已启用"}{" "}
+              {t("enabled", { defaultValue: "已启用" })}{" "}
               {servers.filter((s) => s.enabled).length}
             </span>
             <span>
-              {t("total_tools") || "总工具"}{" "}
+              {t("total_tools", { defaultValue: "总工具" })}{" "}
               {servers.reduce((sum, s) => sum + (s.toolCount || 0), 0)}
             </span>
           </div>
@@ -353,7 +353,7 @@ export function ServersPage() {
       )}
       {isError && (
         <div className="text-center py-8 text-destructive">
-          {t("error_loading_servers") || "加载服务器失败"}:{" "}
+          {t("error_loading_servers", { defaultValue: "加载服务器失败" })}:{" "}
           {error.message === "AUTH_REQUIRED"
             ? t("auth_required")
             : error.message === "API_BASE_URL_UNSET"
@@ -369,16 +369,16 @@ export function ServersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12"></TableHead>
-                <TableHead>{t("name") || "名称"}</TableHead>
-                <TableHead>{t("protocol") || "协议"}</TableHead>
+                <TableHead>{t("name", { defaultValue: "名称" })}</TableHead>
+                <TableHead>{t("protocol", { defaultValue: "协议" })}</TableHead>
                 <TableHead className="text-right">
-                  {t("tool_count") || "工具数"}
+                  {t("tool_count", { defaultValue: "工具数" })}
                 </TableHead>
-                <TableHead>{t("created_at") || "创建时间"}</TableHead>
-                <TableHead>{t("last_seen") || "最后使用"}</TableHead>
-                <TableHead className="w-32">{t("status") || "状态"}</TableHead>
+                <TableHead>{t("created_at", { defaultValue: "创建时间" })}</TableHead>
+                <TableHead>{t("last_seen", { defaultValue: "最后使用" })}</TableHead>
+                <TableHead className="w-32">{t("status", { defaultValue: "状态" })}</TableHead>
                 <TableHead className="text-right w-40">
-                  {t("actions") || "操作"}
+                  {t("actions", { defaultValue: "操作" })}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -414,7 +414,7 @@ export function ServersPage() {
       {filteredServers && filteredServers.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <ServerIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>{t("no_servers_found") || "未找到服务器"}</p>
+          <p>{t("no_servers_found", { defaultValue: "未找到服务器" })}</p>
           {(searchTerm || protocolFilter || statusFilter !== null) && (
             <Button
               variant="link"
@@ -425,7 +425,7 @@ export function ServersPage() {
               }}
               className="mt-2"
             >
-              {t("clear_filters") || "清除过滤器"}
+              {t("clear_filters", { defaultValue: "清除过滤器" })}
             </Button>
           )}
         </div>
@@ -445,16 +445,16 @@ export function ServersPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("confirm_delete") || "确认删除"}
+              {t("confirm_delete", { defaultValue: "确认删除" })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("delete_server_confirm") || "确定要删除服务器"}{" "}
+              {t("delete_server_confirm", { defaultValue: "确定要删除服务器" })}{" "}
               <strong>{serverToDelete?.name}</strong>？
-              {t("action_cannot_undone") || "此操作无法撤销。"}
+              {t("action_cannot_undone", { defaultValue: "此操作无法撤销。" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel") || "取消"}</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel", { defaultValue: "取消" })}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -463,10 +463,10 @@ export function ServersPage() {
               {deleteMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("deleting") || "删除中..."}
+                  {t("deleting", { defaultValue: "删除中..." })}
                 </>
               ) : (
-                t("delete") || "删除"
+                t("delete", { defaultValue: "删除" })
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -540,8 +540,8 @@ function ExpandableServerRow({
             <TooltipContent>
               <p>
                 {isExpanded
-                  ? t("collapse") || "收起详情"
-                  : t("expand") || "展开详情"}
+                  ? t("collapse", { defaultValue: "收起详情" })
+                  : t("expand", { defaultValue: "展开详情" })}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -587,11 +587,11 @@ function ExpandableServerRow({
             />
             {server.enabled ? (
               <Badge className="bg-green-500/10 text-green-600 border-green-500/20 animate-pulse">
-                ● {t("enabled") || "已启用"}
+                ● {t("enabled", { defaultValue: "已启用" })}
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-muted-foreground">
-                {t("disabled") || "已禁用"}
+                {t("disabled", { defaultValue: "已禁用" })}
               </Badge>
             )}
           </div>
@@ -602,19 +602,19 @@ function ExpandableServerRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">{t("actions") || "操作"}</span>
+                <span className="sr-only">{t("actions", { defaultValue: "操作" })}</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{t("actions") || "操作"}</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("actions", { defaultValue: "操作" })}</DropdownMenuLabel>
               <DropdownMenuItem onClick={onView}>
                 <Eye className="mr-2 h-4 w-4" />
-                {t("view_details") || "查看详情"}
+                {t("view_details", { defaultValue: "查看详情" })}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onEdit}>
                 <Edit className="mr-2 h-4 w-4" />
-                {t("edit_server") || "编辑服务器"}
+                {t("edit_server", { defaultValue: "编辑服务器" })}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -622,7 +622,7 @@ function ExpandableServerRow({
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                {t("delete_server") || "删除服务器"}
+                {t("delete_server", { defaultValue: "删除服务器" })}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -637,30 +637,30 @@ function ExpandableServerRow({
               {/* 基本信息 */}
               <div>
                 <h4 className="text-sm font-semibold mb-2">
-                  {t("basic_info") || "基本信息"}
+                  {t("basic_info", { defaultValue: "基本信息" })}
                 </h4>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
                     <dt className="text-muted-foreground">
-                      {t("server_id") || "服务器 ID"}
+                      {t("server_id", { defaultValue: "服务器 ID" })}
                     </dt>
                     <dd className="font-mono">{server.id}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">
-                      {t("created_at") || "创建时间"}
+                      {t("created_at", { defaultValue: "创建时间" })}
                     </dt>
                     <dd>{formatTime(server.createdAt)}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">
-                      {t("tool_count") || "工具数量"}
+                      {t("tool_count", { defaultValue: "工具数量" })}
                     </dt>
                     <dd>{server.toolCount || 0}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">
-                      {t("last_seen") || "最后使用"}
+                      {t("last_seen", { defaultValue: "最后使用" })}
                     </dt>
                     <dd>{formatTime(server.lastSeen)}</dd>
                   </div>
@@ -671,12 +671,12 @@ function ExpandableServerRow({
               {server.protocol === "stdio" && server.command && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2">
-                    {t("startup_config") || "启动配置"}
+                    {t("startup_config", { defaultValue: "启动配置" })}
                   </h4>
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">
-                        {t("command") || "命令"}:
+                        {t("command", { defaultValue: "命令" })}:
                       </span>
                       <code className="ml-2 px-2 py-1 bg-muted rounded text-xs font-mono">
                         {server.command}
@@ -685,7 +685,7 @@ function ExpandableServerRow({
                     {server.args && server.args.length > 0 && (
                       <div>
                         <span className="text-muted-foreground">
-                          {t("arguments") || "参数"}:
+                          {t("arguments", { defaultValue: "参数" })}:
                         </span>
                         <code className="ml-2 px-2 py-1 bg-muted rounded text-xs font-mono">
                           {server.args.join(" ")}
@@ -701,11 +701,11 @@ function ExpandableServerRow({
                 server.url && (
                   <div>
                     <h4 className="text-sm font-semibold mb-2">
-                      {t("remote_config") || "远程配置"}
+                      {t("remote_config", { defaultValue: "远程配置" })}
                     </h4>
                     <div className="text-sm">
                       <span className="text-muted-foreground">
-                        {t("endpoint") || "端点"}:
+                        {t("endpoint", { defaultValue: "端点" })}:
                       </span>
                       <code className="ml-2 px-2 py-1 bg-muted rounded text-xs font-mono">
                         {server.url}
@@ -718,7 +718,7 @@ function ExpandableServerRow({
               {server.env && Object.keys(server.env).length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2">
-                    {t("environment_variables") || "环境变量"} (
+                    {t("environment_variables", { defaultValue: "环境变量" })} (
                     {Object.keys(server.env).length})
                   </h4>
                   <div className="space-y-1">
@@ -770,7 +770,7 @@ function ExpandableServerRow({
               {/* 工具列表 */}
               <div>
                 <h4 className="text-sm font-semibold mb-2">
-                  {t("tools") || "工具列表"} ({tools?.length || 0})
+                  {t("tools", { defaultValue: "工具列表" })} ({tools?.length || 0})
                 </h4>
                 {isLoadingTools ? (
                   <div className="flex items-center justify-center py-4">
@@ -794,7 +794,7 @@ function ExpandableServerRow({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>
-                            {t("click_to_view_details") || "点击查看工具详情"}
+                            {t("click_to_view_details", { defaultValue: "点击查看工具详情" })}
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -802,7 +802,7 @@ function ExpandableServerRow({
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground py-2">
-                    {t("no_tools_available") || "暂无工具"}
+                    {t("no_tools_available", { defaultValue: "暂无工具" })}
                   </p>
                 )}
               </div>

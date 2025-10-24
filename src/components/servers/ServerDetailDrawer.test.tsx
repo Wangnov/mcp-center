@@ -86,10 +86,10 @@ describe("ServerDetailDrawer", () => {
       expect(getMcpServerDetail).toHaveBeenCalledWith("srv-1");
     });
 
-    await user.click(screen.getByText("edit_server"));
+    await user.click(screen.getByText("编辑服务器"));
     expect(onEdit).toHaveBeenCalledWith(server);
 
-    await user.click(screen.getByText("delete_server"));
+    await user.click(screen.getByText("删除服务器"));
     expect(onDelete).toHaveBeenCalledWith(server);
 
     await user.click(screen.getByText("resolve"));

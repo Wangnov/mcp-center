@@ -327,7 +327,7 @@ export function ProjectsPage() {
                 <textarea
                   id="tool-allow"
                   className="w-full min-h-20 rounded border border-border bg-background p-2 text-sm"
-                  placeholder={t("tool_input_hint") ?? "Server::tool_name"}
+                  placeholder={t("tool_input_hint", { defaultValue: "Server::tool_name" })}
                   value={toolAllowInput}
                   onChange={(event) => setToolAllowInput(event.target.value)}
                 />
@@ -339,7 +339,7 @@ export function ProjectsPage() {
                 <textarea
                   id="tool-deny"
                   className="w-full min-h-20 rounded border border-border bg-background p-2 text-sm"
-                  placeholder={t("tool_input_hint") ?? "Server::tool_name"}
+                  placeholder={t("tool_input_hint", { defaultValue: "Server::tool_name" })}
                   value={toolDenyInput}
                   onChange={(event) => setToolDenyInput(event.target.value)}
                 />

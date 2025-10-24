@@ -171,11 +171,11 @@ describe("ServersPage", () => {
 
     await screen.findByText("Alpha Server");
 
-    await user.click(screen.getAllByRole("button", { name: "actions" })[0]);
-    const deleteMenuItem = screen.getAllByText("delete_server")[0];
+    await user.click(screen.getAllByRole("button", { name: "操作" })[0]);
+    const deleteMenuItem = screen.getAllByText("删除服务器")[0];
     await user.click(deleteMenuItem);
 
-    const confirmButton = screen.getAllByText("delete").at(-1);
+    const confirmButton = screen.getAllByText("删除").at(-1);
     await user.click(confirmButton!);
 
     await waitFor(() => {
@@ -190,7 +190,7 @@ describe("ServersPage", () => {
 
     await screen.findByText("Alpha Server");
 
-    const searchInput = screen.getByPlaceholderText("search_servers");
+    const searchInput = screen.getByPlaceholderText("搜索服务器...");
     await user.type(searchInput, "Beta");
 
     expect(await screen.findByText("Beta Server")).toBeInTheDocument();
@@ -202,26 +202,43 @@ describe("ServersPage", () => {
     expect(await screen.findByText("Beta Server")).toBeInTheDocument();
     expect(screen.queryByText("Alpha Server")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "all" }));
+    await user.click(screen.getByRole("button", { name: "全部" }));
     await user.click(screen.getByRole("button", { name: "sse" }));
 
     expect(await screen.findByText("Gamma Server")).toBeInTheDocument();
     expect(screen.queryByText("Alpha Server")).toBeNull();
     expect(screen.queryByText("Beta Server")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "all" }));
+    await user.click(screen.getByRole("button", { name: "全部" }));
     await user.click(screen.getByRole("button", { name: "stdio" }));
 
     expect(await screen.findByText("Alpha Server")).toBeInTheDocument();
     expect(screen.queryByText("Beta Server")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "all" }));
-    await user.click(screen.getByRole("button", { name: "enabled" }));
+    await user.click(screen.getByRole("button", { name: "全部" }));
+    await user.click(screen.getByRole("button", { name: "已启用" }));
 
     expect(await screen.findByText("Alpha Server")).toBeInTheDocument();
     expect(screen.queryByText("Beta Server")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "disabled" }));
+    await user.click(screen.getByRole("button", { name: "已禁用" }));
+
+    expect(await screen.findByText("Beta Server")).toBeInTheDocument();
+  });
+
+  it("clears status filter when toggled twice", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(<ServersPage />);
+
+    await screen.findByText("Alpha Server");
+
+    const enabledButton = screen.getByRole("button", { name: "已启用" });
+    await user.click(enabledButton);
+
+    expect(screen.queryByText("Beta Server")).toBeNull();
+
+    await user.click(enabledButton);
 
     expect(await screen.findByText("Beta Server")).toBeInTheDocument();
   });
@@ -275,9 +292,7 @@ describe("ServersPage", () => {
 
     renderWithQueryClient(<ServersPage />);
 
-    expect(
-      await screen.findByText(/error_loading_servers/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/加载服务器失败/)).toBeInTheDocument();
   });
 
   it("renders base url missing hint when API base is unset", async () => {
@@ -287,8 +302,17 @@ describe("ServersPage", () => {
 
     renderWithQueryClient(<ServersPage />);
 
-    const message = await screen.findByText(/error_loading_servers/i);
+    const message = await screen.findByText(/加载服务器失败/);
     expect(message.textContent).toContain("api_base_missing");
+  });
+
+  it("falls back to raw error message for unknown failures", async () => {
+    vi.mocked(listMcpServers).mockRejectedValueOnce(new Error("opaque_error"));
+
+    renderWithQueryClient(<ServersPage />);
+
+    const message = await screen.findByText(/加载服务器失败/);
+    expect(message.textContent).toContain("opaque_error");
   });
 
   it("renders server configuration details and clears filters", async () => {
@@ -317,7 +341,7 @@ describe("ServersPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        (text) => text === "no_tools_available" || text === "暂无工具",
+        (text) => text === "暂无工具" || text === "暂无工具",
       ),
     ).toBeInTheDocument();
 
@@ -340,13 +364,13 @@ describe("ServersPage", () => {
     expect(screen.getByText("Authorization")).toBeInTheDocument();
     expect(screen.getByText("Bearer token")).toBeInTheDocument();
 
-    const searchInput = screen.getByPlaceholderText("search_servers");
+    const searchInput = screen.getByPlaceholderText("搜索服务器...");
     await user.clear(searchInput);
     await user.type(searchInput, "Nonexistent");
 
     expect(
       await screen.findByText(
-        (text) => text === "no_servers_found" || text.includes("未找到"),
+        (text) => text === "未找到服务器" || text.includes("未找到"),
       ),
     ).toBeInTheDocument();
 
@@ -365,8 +389,8 @@ describe("ServersPage", () => {
     renderWithQueryClient(<ServersPage />);
 
     await screen.findByText("Alpha Server");
-    await user.click(screen.getAllByRole("button", { name: "actions" })[0]);
-    await user.click(screen.getAllByText("view_details")[0]!);
+    await user.click(screen.getAllByRole("button", { name: "操作" })[0]);
+    await user.click(screen.getAllByText("查看详情")[0]!);
 
     await waitFor(() => {
       const lastCall = mockServerDetailDrawer.mock.calls.at(-1);
@@ -384,8 +408,8 @@ describe("ServersPage", () => {
     renderWithQueryClient(<ServersPage />);
 
     await screen.findByText("Alpha Server");
-    await user.click(screen.getAllByRole("button", { name: "actions" })[0]);
-    await user.click(screen.getAllByText("edit_server")[0]!);
+    await user.click(screen.getAllByRole("button", { name: "操作" })[0]);
+    await user.click(screen.getAllByText("编辑服务器")[0]!);
 
     expect(logSpy).toHaveBeenCalledWith(
       "Edit server:",
@@ -401,7 +425,7 @@ describe("ServersPage", () => {
     renderWithQueryClient(<ServersPage />);
 
     await screen.findByText("Alpha Server");
-    const searchInput = screen.getByPlaceholderText("search_servers");
+    const searchInput = screen.getByPlaceholderText("搜索服务器...");
 
     await user.keyboard("{Control>}n{/Control}");
 
@@ -421,8 +445,8 @@ describe("ServersPage", () => {
       expect(document.activeElement).toBe(searchInput);
     });
 
-    await user.click(screen.getAllByRole("button", { name: "actions" })[0]);
-    await user.click(screen.getAllByText("view_details")[0]!);
+    await user.click(screen.getAllByRole("button", { name: "操作" })[0]);
+    await user.click(screen.getAllByText("查看详情")[0]!);
 
     await waitFor(() => {
       expect(mockServerDetailDrawer.mock.calls.at(-1)?.[0]?.open).toBe(true);
@@ -461,7 +485,7 @@ describe("ServersPage", () => {
     await user.click(switches[0]);
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("mcp_toggle_error", {
+      expect(toast.error).toHaveBeenCalledWith("切换服务器状态失败", {
         description: "boom",
       });
     });
@@ -474,13 +498,13 @@ describe("ServersPage", () => {
     renderWithQueryClient(<ServersPage />);
 
     await screen.findByText("Alpha Server");
-    await user.click(screen.getAllByRole("button", { name: "actions" })[0]);
-    await user.click(screen.getAllByText("delete_server")[0]);
-    const confirmButton = screen.getAllByText("delete").at(-1);
+    await user.click(screen.getAllByRole("button", { name: "操作" })[0]);
+    await user.click(screen.getAllByText("删除服务器")[0]);
+    const confirmButton = screen.getAllByText("删除").at(-1);
     await user.click(confirmButton!);
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("mcp_delete_error", {
+      expect(toast.error).toHaveBeenCalledWith("删除服务器失败", {
         description: "nope",
       });
     });
@@ -548,19 +572,19 @@ describe("ServersPage", () => {
 
     const nowRow = (await screen.findByText("Now Server")).closest("tr");
     expect(nowRow).not.toBeNull();
-    expect(within(nowRow!).getAllByText("just_now")).toHaveLength(2);
+    expect(within(nowRow!).getAllByText("刚刚")).toHaveLength(2);
 
     const minutesRow = screen.getByText("Minute Server").closest("tr");
     expect(minutesRow).not.toBeNull();
-    expect(within(minutesRow!).getAllByText("5minutes_ago")).toHaveLength(2);
+    expect(within(minutesRow!).getAllByText("5分钟前")).toHaveLength(2);
 
     const hoursRow = screen.getByText("Hour Server").closest("tr");
     expect(hoursRow).not.toBeNull();
-    expect(within(hoursRow!).getAllByText("3hours_ago")).toHaveLength(2);
+    expect(within(hoursRow!).getAllByText("3小时前")).toHaveLength(2);
 
     const daysRow = screen.getByText("Day Server").closest("tr");
     expect(daysRow).not.toBeNull();
-    expect(within(daysRow!).getAllByText("2days_ago")).toHaveLength(2);
+    expect(within(daysRow!).getAllByText("2天前")).toHaveLength(2);
 
     const oldRow = screen.getByText("Old Server").closest("tr");
     expect(oldRow).not.toBeNull();

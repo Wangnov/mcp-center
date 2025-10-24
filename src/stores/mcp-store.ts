@@ -220,8 +220,18 @@ export const useMcpStore = create<McpStore>()(
    选择器函数（可复用、便于测试）
    ======================================== */
 
-export const selectEnabledServers = (state: McpStore) =>
-  state.servers.filter((s) => s.enabled);
+let lastServersSnapshot: McpServer[] | null = null;
+let lastEnabledServers: McpServer[] = [];
+
+export const selectEnabledServers = (state: McpStore) => {
+  if (state.servers === lastServersSnapshot) {
+    return lastEnabledServers;
+  }
+
+  lastServersSnapshot = state.servers;
+  lastEnabledServers = state.servers.filter((s) => s.enabled);
+  return lastEnabledServers;
+};
 
 export const selectSelectedServer = (state: McpStore) => {
   const id = state.selectedServerId;

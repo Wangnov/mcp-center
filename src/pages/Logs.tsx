@@ -295,7 +295,7 @@ export function LogsPage() {
                 disabled={isLoadingOverview || servers.length === 0}
               >
                 <SelectTrigger className="w-64">
-                  <SelectValue placeholder={t("logs_select_server_placeholder") ?? ""} />
+                  <SelectValue placeholder={t("logs_select_server_placeholder", { defaultValue: "" })} />
                 </SelectTrigger>
                 <SelectContent>
                   {servers.map((server) => (
@@ -317,7 +317,7 @@ export function LogsPage() {
                 disabled={!selectedServerSummary || selectedServerSummary.files.length === 0}
               >
                 <SelectTrigger className="w-64">
-                  <SelectValue placeholder={t("logs_select_file_placeholder") ?? ""} />
+                  <SelectValue placeholder={t("logs_select_file_placeholder", { defaultValue: "" })} />
                 </SelectTrigger>
                 <SelectContent>
                   {selectedServerSummary?.files.map((file) => (
@@ -387,7 +387,7 @@ export function LogsPage() {
           )}
 
           {isEmptyState ? (
-            <EmptyState message={t("logs_empty_state") ?? ""} />
+            <EmptyState message={t("logs_empty_state", { defaultValue: "" })} />
           ) : (
             <div className="flex flex-col gap-4">
               <div
@@ -395,9 +395,9 @@ export function LogsPage() {
                 className="max-h-[65vh] min-h-[300px] overflow-y-auto rounded-lg border bg-muted/10"
               >
                 {isLoadingOverview || isLoadingEntries ? (
-                  <LoadingState message={t("loading") ?? "Loading..."} />
+                  <LoadingState message={t("loading", { defaultValue: "Loading..." })} />
                 ) : combinedEntries.length === 0 ? (
-                  <EmptyState message={t("logs_no_entries") ?? ""} />
+                  <EmptyState message={t("logs_no_entries", { defaultValue: "" })} />
                 ) : (
                   combinedEntries.map((entry, index) => (
                     <LogEntryItem key={`${entry.timestamp}-${index}`} entry={entry} />

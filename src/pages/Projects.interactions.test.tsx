@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithQueryClient } from "@/test/test-utils";
 import { ProjectsPage } from "./Projects";
@@ -260,6 +260,15 @@ describe("ProjectsPage", () => {
     expect(errorLine.textContent).toContain("api_base_missing");
   });
 
+  it("renders raw error message when project loading fails unexpectedly", async () => {
+    vi.mocked(listProjects).mockRejectedValueOnce(new Error("network gone"));
+
+    renderWithQueryClient(<ProjectsPage />);
+
+    const errorLine = await screen.findByText(/error_loading_projects/i);
+    expect(errorLine.textContent).toContain("network gone");
+  });
+
   it("logs errors when permission mutations fail", async () => {
     const user = userEvent.setup();
     const errorSpy = vi
@@ -340,5 +349,90 @@ describe("ProjectsPage", () => {
     });
 
     errorSpy.mockRestore();
+  });
+
+  it("shows server id when the display name is missing", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(listMcpServers).mockResolvedValueOnce([
+      {
+        id: "srv-known",
+        name: "Known",
+        protocol: "stdio",
+        enabled: true,
+        toolCount: 1,
+      },
+    ]);
+    vi.mocked(listProjects).mockResolvedValueOnce([
+      {
+        id: "proj-fallback",
+        path: "/workspace/fallback",
+        displayName: null,
+        agent: null,
+        allowedServerIds: ["srv-known", "srv-missing"],
+        allowed_server_ids: ["srv-known", "srv-missing"],
+        createdAt: Date.now(),
+        lastSeenAt: Date.now(),
+      } as unknown as ProjectSummary,
+    ]);
+
+    renderWithQueryClient(<ProjectsPage />);
+
+    await screen.findByText("/workspace/fallback");
+    await user.click(screen.getByRole("button", { name: "edit_permissions" }));
+
+    expect(await screen.findByLabelText("Known")).toBeInTheDocument();
+    expect(screen.getByText("srv-missing")).toBeInTheDocument();
+  });
+
+  it("closes dialog when escape key is pressed", async () => {
+    const user = userEvent.setup();
+
+    renderWithQueryClient(<ProjectsPage />);
+
+    await screen.findByText("/workspace/demo");
+    await user.click(screen.getByRole("button", { name: "edit_permissions" }));
+
+    await screen.findByRole("dialog", { name: "edit_permissions" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "edit_permissions" }),
+      ).toBeNull();
+    });
+  });
+
+  it("shows loading label while permissions are saving", async () => {
+    const user = userEvent.setup();
+    let resolveAllow: ((value: unknown) => void) | undefined;
+    vi.mocked(allowProjectServers).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAllow = resolve;
+        }),
+    );
+
+    renderWithQueryClient(<ProjectsPage />);
+
+    await screen.findByText("/workspace/demo");
+    await user.click(screen.getByRole("button", { name: "edit_permissions" }));
+
+    const betaCheckbox = await screen.findByLabelText("Beta");
+    await user.click(betaCheckbox);
+
+    const saveButton = screen.getByRole("button", { name: "save_changes" });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(allowProjectServers).toHaveBeenCalled();
+    });
+
+    const loadingButton = await screen.findByRole("button", { name: "loading" });
+    expect(loadingButton).toBeDisabled();
+
+    await act(async () => {
+      resolveAllow?.(null);
+    });
   });
 });

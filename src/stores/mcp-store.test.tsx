@@ -1,5 +1,5 @@
 import { describe, expect, beforeEach, it } from "vitest";
-import { waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import {
   selectEnabledServers,
   selectLanguage,
@@ -7,7 +7,15 @@ import {
   selectSelectedProject,
   selectSelectedServer,
   selectTheme,
+  useEnabledServers,
+  useLanguage,
   useMcpStore,
+  useProjects,
+  useSelectedProject,
+  useSelectedServer,
+  useServers,
+  useTheme,
+  useUiState,
 } from "./mcp-store";
 
 beforeEach(() => {
@@ -79,10 +87,19 @@ describe("useMcpStore", () => {
       toolCount: 1,
     };
 
-    useMcpStore.getState().setServers([initialServer]);
+    const untouchedServer = {
+      id: "srv-2",
+      name: "Beta",
+      protocol: "http" as const,
+      enabled: false,
+      toolCount: 0,
+    };
+
+    useMcpStore.getState().setServers([initialServer, untouchedServer]);
     useMcpStore.getState().updateServer("srv-1", { name: "Alpha Prime" });
 
     expect(useMcpStore.getState().servers[0]?.name).toBe("Alpha Prime");
+    expect(useMcpStore.getState().servers[1]).toMatchObject(untouchedServer);
 
     const project = {
       id: "proj-1",
@@ -93,13 +110,24 @@ describe("useMcpStore", () => {
       lastSeen: Date.now(),
     };
 
-    useMcpStore.getState().setProjects([project]);
+    const untouchedProject = {
+      id: "proj-2",
+      path: "/workspace/other",
+      name: "Other",
+      allowedServers: [],
+      createdAt: Date.now(),
+      lastSeen: Date.now(),
+    };
+
+    useMcpStore.getState().setProjects([project, untouchedProject]);
     useMcpStore.getState().updateProject("proj-1", { name: "Demo Updated" });
 
     expect(useMcpStore.getState().projects[0]?.name).toBe("Demo Updated");
+    expect(useMcpStore.getState().projects[1]).toMatchObject(untouchedProject);
 
     useMcpStore.getState().removeProject("proj-1");
-    expect(useMcpStore.getState().projects).toHaveLength(0);
+    expect(useMcpStore.getState().projects).toHaveLength(1);
+    expect(useMcpStore.getState().projects[0]).toMatchObject(untouchedProject);
   });
 
   it("toggles ui state and error flags", () => {
@@ -206,5 +234,100 @@ describe("useMcpStore", () => {
     const state = useMcpStore.getState();
     expect(selectSelectedServer(state)).toBeNull();
     expect(selectSelectedProject(state)).toBeNull();
+  });
+
+  it("returns null when selected entities are missing from collections", () => {
+    useMcpStore.getState().setServers([
+      {
+        id: "srv-existing",
+        name: "Existing",
+        protocol: "stdio",
+        enabled: true,
+        toolCount: 0,
+      },
+    ]);
+
+    useMcpStore.getState().selectServer("srv-missing");
+    expect(selectSelectedServer(useMcpStore.getState())).toBeNull();
+
+    useMcpStore.getState().setProjects([
+      {
+        id: "proj-existing",
+        path: "/tmp",
+        name: "Existing Project",
+        allowedServers: [],
+        createdAt: Date.now(),
+        lastSeen: Date.now(),
+      },
+    ]);
+
+    useMcpStore.getState().selectProject("proj-missing");
+    expect(selectSelectedProject(useMcpStore.getState())).toBeNull();
+  });
+
+  it("wires hook selectors to zustand store values", () => {
+    const results: Record<string, unknown> = {};
+
+    useMcpStore.getState().reset();
+    useMcpStore.getState().setServers([
+      {
+        id: "srv-hook",
+        name: "Hook Server",
+        protocol: "stdio",
+        enabled: true,
+        toolCount: 2,
+      },
+      {
+        id: "srv-disabled",
+        name: "Disabled",
+        protocol: "http",
+        enabled: false,
+        toolCount: 0,
+      },
+    ]);
+    useMcpStore.getState().selectServer("srv-hook");
+    useMcpStore.getState().setProjects([
+      {
+        id: "proj-hook",
+        path: "/hook",
+        name: "Hook Project",
+        allowedServers: ["srv-hook"],
+        createdAt: Date.now(),
+        lastSeen: Date.now(),
+      },
+    ]);
+    useMcpStore.getState().selectProject("proj-hook");
+    useMcpStore.getState().setTheme("dark");
+    useMcpStore.getState().setLanguage("ja");
+
+    const Probe = () => {
+      results.servers = useServers();
+      results.enabled = useEnabledServers();
+      results.selectedServer = useSelectedServer();
+      results.projects = useProjects();
+      results.selectedProject = useSelectedProject();
+      results.ui = useUiState();
+      results.theme = useTheme();
+      results.language = useLanguage();
+      return null;
+    };
+
+    render(<Probe />);
+
+    expect(results.servers).toEqual([
+      expect.objectContaining({ id: "srv-hook" }),
+      expect.objectContaining({ id: "srv-disabled" }),
+    ]);
+    expect(results.enabled).toEqual([
+      expect.objectContaining({ id: "srv-hook" }),
+    ]);
+    expect(results.selectedServer).toMatchObject({ id: "srv-hook" });
+    expect(results.projects).toEqual([
+      expect.objectContaining({ id: "proj-hook" }),
+    ]);
+    expect(results.selectedProject).toMatchObject({ id: "proj-hook" });
+    expect(results.ui).toMatchObject({ theme: "dark", language: "ja" });
+    expect(results.theme).toBe("dark");
+    expect(results.language).toBe("ja");
   });
 });
