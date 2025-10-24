@@ -16,5 +16,5 @@
 ## 注意
 
 - Drawer open 状态由外部控制；组件内部在 `open && server` 条件下 refetch。
-- 兼容后端大小写不一致的字段（`toolCount` vs `tool_count`），新增字段时保持同样策略。
+- HTTP API 字段已统一为 camelCase，组件无需再做大小写兼容处理。
 - 所有按钮/徽章均调用 `components/ui` 下的基础组件，确保主题一致。

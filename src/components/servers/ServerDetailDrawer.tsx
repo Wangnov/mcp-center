@@ -72,12 +72,9 @@ export function ServerDetailDrawer({
   const serverData: McpServer = serverDetail?.server ?? server;
   const tools = serverDetail?.tools || [];
 
-  // 兼容不同的字段命名：列表用 toolCount，详情用 tool_count
-  const toolCount = serverData.tool_count ?? serverData.toolCount ?? 0;
-
-  // 兼容时间戳字段的不同命名
-  const createdAt = serverData.createdAt ?? serverData.created_at;
-  const lastSeen = serverData.lastSeen ?? serverData.last_seen;
+  const toolCount = serverData.toolCount ?? 0;
+  const createdAt = serverData.createdAt;
+  const lastSeen = serverData.lastSeen;
 
   // 协议徽章颜色
   const getProtocolBadgeVariant = (protocol: string): BadgeVariant => {
@@ -94,8 +91,8 @@ export function ServerDetailDrawer({
   };
 
   // 格式化时间
-  const formatTimestamp = (timestamp?: number) => {
-    if (!timestamp) return "-";
+  const formatTimestamp = (timestamp?: number | null) => {
+    if (timestamp == null) return "-";
     return new Date(timestamp * 1000).toLocaleString();
   };
 

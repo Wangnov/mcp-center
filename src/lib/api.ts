@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { version as webVersion } from "../../package.json";
+import type {
+  LogEntriesResponse,
+  LogEntry,
+  LogListResponse,
+} from "./api-types.generated";
 
 declare global {
   interface Window {
@@ -127,19 +132,15 @@ export interface McpServer {
   name: string;
   protocol: "stdio" | "sse" | "http";
   enabled: boolean;
-  toolCount: number; // 列表接口返回驼峰命名
-  // 扩展字段（来自详情接口）
-  tool_count?: number; // 详情接口使用蛇形命名
-  command?: string;
+  toolCount: number;
+  // 详情接口扩展字段
+  command?: string | null;
   args?: string[];
-  url?: string;
+  url?: string | null;
   env?: Record<string, string>;
   headers?: Record<string, string>;
-  // 时间戳字段 - 支持两种命名
-  createdAt?: number; // 列表接口使用驼峰命名
-  lastSeen?: number; // 列表接口使用驼峰命名
-  created_at?: number; // 详情接口使用蛇形命名
-  last_seen?: number; // 详情接口使用蛇形命名
+  createdAt?: number | null;
+  lastSeen?: number | null;
 }
 
 interface ServerListResponse {
@@ -149,11 +150,11 @@ interface ServerListResponse {
 export interface ProjectSummary {
   id: string;
   path: string;
-  display_name: string | null;
+  displayName: string | null;
   agent: string | null;
-  allowed_server_ids: string[];
-  created_at: number;
-  last_seen_at: number;
+  allowedServerIds: string[];
+  createdAt: number;
+  lastSeenAt: number;
 }
 
 interface ProjectListResponse {
@@ -203,6 +204,53 @@ export const listProjects = async (): Promise<ProjectSummary[]> => {
   }
 
   throw new Error("AUTH_REQUIRED");
+};
+
+export const listServerLogs = async (
+  options: { serverId?: string } = {},
+): Promise<LogListResponse> => {
+  const params = new URLSearchParams();
+  if (options.serverId) {
+    params.set("serverId", options.serverId);
+  }
+  const path = `/api/logs/servers${params.toString() ? `?${params.toString()}` : ""}`;
+  const response = await getJson<LogListResponse>(path);
+  return response ?? { servers: [] };
+};
+
+export const getLogEntries = async (
+  options: {
+    serverId: string;
+    file?: string | null;
+    cursor?: number;
+    limit?: number;
+  },
+): Promise<LogEntriesResponse> => {
+  const params = new URLSearchParams({ serverId: options.serverId });
+  if (options.file) params.set("file", options.file);
+  if (typeof options.cursor === "number") params.set("cursor", String(options.cursor));
+  if (typeof options.limit === "number") params.set("limit", String(options.limit));
+
+  const path = `/api/logs/entries?${params.toString()}`;
+  const response = await getJson<LogEntriesResponse>(path);
+  if (!response) {
+    throw new Error("AUTH_REQUIRED");
+  }
+  return response;
+};
+
+export const openLogStream = (serverId: string): EventSource => {
+  const params = new URLSearchParams();
+  params.set("client", isTauri ? "tauri" : "web");
+  if (apiAuthToken) {
+    params.set("token", apiAuthToken);
+  }
+  const path = `/api/logs/tail/${encodeURIComponent(serverId)}${params.toString() ? `?${params.toString()}` : ""}`;
+  const url = resolveUrl(path);
+  if (!url) {
+    throw new Error("API_BASE_URL_UNSET");
+  }
+  return new EventSource(url);
 };
 
 export const allowProjectServers = async (

@@ -8,15 +8,16 @@
 
 ## 子目录/文件
 
-- `Layout.tsx`：顶层壳组件（侧边栏导航 + `<Outlet />`）。依赖 `TooltipProvider`、`HealthStatusBadge`、`McpCenterLogo`。
-- `AddServerDialog.tsx`：新增服务器对话框，组合 shadcn `Dialog`、`Form`、`Select` 等组件。
-- `HealthStatusBadge.tsx`：调用 `getHealth` API 并根据状态显示动画徽章。
+- `Layout.tsx`：顶层壳组件（侧边栏导航 + `<Outlet />`）。依赖 `TooltipProvider`、`HealthStatusBadge`、`McpCenterLogo`；`Layout.test.tsx` 验证导航与内容渲染。
+- `AddServerDialog.tsx`：新增服务器对话框，组合 shadcn `Dialog`、`Form`、`Select` 等组件；导出 `addServerFormSchema` / `buildAddServerPayload` 供测试验证表单行为。
+- `HealthStatusBadge.tsx`：调用 `getHealth` API 并根据状态显示动画徽章；`HealthStatusBadge.test.tsx` + `HealthStatusBadge.states.test.tsx` 分别覆盖真实查询流程与模拟的错误/刷新场景。
+- `ErrorFallback.tsx`：全局错误边界的回退 UI，配合 `react-error-boundary` 使用，提供重试与刷新操作；文案位于 `public/locales/*/common.json` 的 `app_error_*` key，下游测试 `__tests__/ErrorFallback.test.tsx` 覆盖视觉与交互。
 - `theme-provider.tsx`：包装 `next-themes` 风格的 ThemeProvider，控制 `class` attribute。
 - `icons/`：目前仅包含 `McpCenterLogo.tsx`。
 - `servers/`：
-  - `ServerDetailDrawer.tsx`：查看服务器详情（React Query 查询 + Drawer UI）。
-  - `ToolDetailDialog.tsx`：展示单个工具信息。
-- `ui/`：从 shadcn/ui 拷贝的基础组件（alert-dialog、button、table 等），已适配 Tailwind v4。
+- `ServerDetailDrawer.tsx`：查看服务器详情（React Query 查询 + Drawer UI）。对应测试 `ServerDetailDrawer.test.tsx` 覆盖详情加载、加载态、工具弹窗、编辑/删除回调。
+  - `ToolDetailDialog.tsx`：展示单个工具信息，测试验证存在/缺省描述两种分支。
+- `ui/`：从 shadcn/ui 拷贝的基础组件（alert-dialog、button、table 等），已适配 Tailwind v4；`badge.test.tsx` 与 `button.test.tsx` 覆盖 `asChild`/默认渲染差异。
 
 ## 注意
 

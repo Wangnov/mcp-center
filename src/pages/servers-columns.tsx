@@ -34,7 +34,7 @@ export interface ServerColumnCallbacks {
   onDelete: (server: McpServer) => void;
   isExpanded: (serverId: string) => boolean;
   isPending: (serverId: string) => boolean;
-  formatTime: (timestamp?: number) => string;
+  formatTime: (timestamp?: number | null) => string;
   getProtocolBadgeVariant: (
     protocol: string,
   ) => "default" | "secondary" | "outline";
@@ -130,20 +130,20 @@ export function createColumns(
       },
     },
     {
-      accessorKey: "tool_count",
+      accessorKey: "toolCount",
       header: () => (
         <div className="text-right">{t("tool_count") || "工具数"}</div>
       ),
       cell: ({ row }) => {
         return (
           <div className="text-right tabular-nums">
-            {row.original.tool_count}
+            {row.original.toolCount}
           </div>
         );
       },
     },
     {
-      accessorKey: "last_seen",
+      accessorKey: "lastSeen",
       header: ({ column }) => {
         return (
           <Button
@@ -159,7 +159,7 @@ export function createColumns(
       cell: ({ row }) => {
         return (
           <div className="text-muted-foreground text-sm">
-            {formatTime(row.original.last_seen)}
+            {formatTime(row.original.lastSeen)}
           </div>
         );
       },

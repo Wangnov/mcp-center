@@ -9,6 +9,7 @@
 
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
+import { shallow } from "zustand/shallow";
 
 /* ========================================
    类型定义
@@ -90,7 +91,7 @@ interface McpStoreActions {
   reset: () => void;
 }
 
-type McpStore = McpStoreState & McpStoreActions;
+export type McpStore = McpStoreState & McpStoreActions;
 
 /* ========================================
    初始状态
@@ -216,6 +217,29 @@ export const useMcpStore = create<McpStore>()(
 );
 
 /* ========================================
+   选择器函数（可复用、便于测试）
+   ======================================== */
+
+export const selectEnabledServers = (state: McpStore) =>
+  state.servers.filter((s) => s.enabled);
+
+export const selectSelectedServer = (state: McpStore) => {
+  const id = state.selectedServerId;
+  return id ? state.servers.find((s) => s.id === id) ?? null : null;
+};
+
+export const selectProjects = (state: McpStore) => state.projects;
+
+export const selectSelectedProject = (state: McpStore) => {
+  const id = state.selectedProjectId;
+  return id ? state.projects.find((p) => p.id === id) ?? null : null;
+};
+
+export const selectUiState = (state: McpStore) => state.ui;
+export const selectTheme = (state: McpStore) => state.ui.theme;
+export const selectLanguage = (state: McpStore) => state.ui.language;
+
+/* ========================================
    选择器 Hooks（性能优化）
    ======================================== */
 
@@ -224,30 +248,24 @@ export const useServers = () => useMcpStore((state) => state.servers);
 
 // 仅订阅已启用的服务器
 export const useEnabledServers = () =>
-  useMcpStore((state) => state.servers.filter((s) => s.enabled));
+  useMcpStore(selectEnabledServers, shallow);
 
 // 仅订阅选中的服务器
 export const useSelectedServer = () =>
-  useMcpStore((state) => {
-    const id = state.selectedServerId;
-    return id ? state.servers.find((s) => s.id === id) : null;
-  });
+  useMcpStore(selectSelectedServer);
 
 // 仅订阅项目列表
-export const useProjects = () => useMcpStore((state) => state.projects);
+export const useProjects = () => useMcpStore(selectProjects);
 
 // 仅订阅选中的项目
 export const useSelectedProject = () =>
-  useMcpStore((state) => {
-    const id = state.selectedProjectId;
-    return id ? state.projects.find((p) => p.id === id) : null;
-  });
+  useMcpStore(selectSelectedProject);
 
 // 仅订阅 UI 状态
-export const useUiState = () => useMcpStore((state) => state.ui);
+export const useUiState = () => useMcpStore(selectUiState);
 
 // 仅订阅主题
-export const useTheme = () => useMcpStore((state) => state.ui.theme);
+export const useTheme = () => useMcpStore(selectTheme);
 
 // 仅订阅语言
-export const useLanguage = () => useMcpStore((state) => state.ui.language);
+export const useLanguage = () => useMcpStore(selectLanguage);

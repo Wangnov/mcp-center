@@ -55,12 +55,12 @@ export function isStdioServer(server: ServerSnapshot): boolean {
 
 //  示例 4：处理可空类型
 export function formatProject(project: ProjectSummary): string {
-  //  display_name 是 string | null，TypeScript 强制检查
-  const name = project.display_name ?? project.path;
+  //  displayName 是 string | null，TypeScript 强制检查
+  const name = project.displayName ?? project.path;
   const agent = project.agent ?? "未知";
 
-  //  created_at 是 number（从 u64 自动转换）
-  const date = new Date(project.created_at * 1000);
+  //  createdAt 是 number（从 u64 自动转换）
+  const date = new Date(project.createdAt * 1000);
 
   return `${name} (${agent}) - ${date.toLocaleDateString()}`;
 }

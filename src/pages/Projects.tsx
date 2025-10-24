@@ -162,11 +162,11 @@ export function ProjectsPage() {
 
   const handleEditClick = (project: ProjectSummary) => {
     const ids = new Set<string>(Array.from(serverNameById.keys()));
-    project.allowed_server_ids.forEach((serverId) => ids.add(serverId));
+    project.allowedServerIds.forEach((serverId) => ids.add(serverId));
 
     const initial: Record<string, boolean> = {};
     ids.forEach((serverId) => {
-      initial[serverId] = project.allowed_server_ids.includes(serverId);
+      initial[serverId] = project.allowedServerIds.includes(serverId);
     });
 
     setSelectedProject(project);
@@ -185,9 +185,9 @@ export function ProjectsPage() {
       .filter(([, allowed]) => allowed)
       .map(([server]) => server);
 
-    const currentAllowed = new Set(selectedProject.allowed_server_ids);
+    const currentAllowed = new Set(selectedProject.allowedServerIds);
     const serversToAllow = nextAllowed.filter((s) => !currentAllowed.has(s));
-    const serversToDeny = selectedProject.allowed_server_ids.filter(
+    const serversToDeny = selectedProject.allowedServerIds.filter(
       (s) => !nextAllowed.includes(s),
     );
 
@@ -258,8 +258,8 @@ export function ProjectsPage() {
                 <TableRow key={project.id}>
                   <TableCell className="font-mono">{project.path}</TableCell>
                   <TableCell>
-                    {project.allowed_server_ids.length > 0
-                      ? project.allowed_server_ids
+                    {project.allowedServerIds.length > 0
+                      ? project.allowedServerIds
                           .map(
                             (serverId) =>
                               serverNameById.get(serverId) ?? serverId,
@@ -427,7 +427,7 @@ export function ProjectsPage() {
   );
 }
 
-function parseToolInput(raw: string): string[] {
+export function parseToolInput(raw: string): string[] {
   return raw
     .split(/[\n,]+/)
     .map((value) => value.trim())

@@ -76,4 +76,11 @@ export default defineConfig({
   css: {
     transformer: "lightningcss",
   },
+
+  test: {
+    globals: true,
+    environment: "happy-dom",
+    setupFiles: "./src/test/setup.ts",
+    css: true,
+  },
 });

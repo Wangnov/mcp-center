@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { Server, FolderKanban, Settings } from "lucide-react";
+import { Server, FolderKanban, ScrollText, Settings } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { McpCenterLogo } from "@/components/icons/McpCenterLogo";
 import { HealthStatusBadge } from "@/components/HealthStatusBadge";
@@ -59,6 +59,7 @@ export function Layout() {
                   icon={FolderKanban}
                   label={t("projects")}
                 />
+                <NavItem to="/logs" icon={ScrollText} label={t("logs")} />
               </div>
             </nav>
             <nav className="flex flex-col items-center gap-3">

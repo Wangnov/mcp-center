@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 
-const formSchema = z
+export const addServerFormSchema = z
   .object({
     name: z.string().min(1, { message: "Server name is required." }),
     protocol: z.enum(["stdio", "sse", "http"]),
@@ -44,6 +44,7 @@ const formSchema = z
     endpoint: z
       .string()
       .url({ message: "Please enter a valid URL." })
+      .or(z.literal(""))
       .optional(),
   })
   .refine(
@@ -68,6 +69,20 @@ const formSchema = z
     },
   );
 
+export type AddServerFormValues = z.infer<typeof addServerFormSchema>;
+
+export function buildAddServerPayload(
+  values: AddServerFormValues,
+): AddServerPayload {
+  const payload: AddServerPayload = { ...values };
+  if (payload.protocol === "stdio" && payload.command) {
+    const parts = payload.command.split(/\s+/);
+    payload.command = parts.shift() || "";
+    payload.args = parts.join(" ");
+  }
+  return payload;
+}
+
 export function AddServerDialog({
   children,
   open: externalOpen,
@@ -85,8 +100,8 @@ export function AddServerDialog({
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange || setInternalOpen;
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<AddServerFormValues>({
+    resolver: zodResolver(addServerFormSchema),
     defaultValues: {
       name: "",
       protocol: "stdio",
@@ -113,14 +128,8 @@ export function AddServerDialog({
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const payload: AddServerPayload = { ...values };
-    // The backend CLI splits the command and args, so we can pass it as a single string.
-    if (payload.protocol === "stdio" && payload.command) {
-      const parts = payload.command.split(/\s+/);
-      payload.command = parts.shift() || "";
-      payload.args = parts.join(" ");
-    }
+  function onSubmit(values: AddServerFormValues) {
+    const payload = buildAddServerPayload(values);
     createServer(payload);
   }
 

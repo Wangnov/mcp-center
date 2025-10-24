@@ -197,8 +197,8 @@ export function ServersPage() {
   };
 
   // 格式化时间
-  const formatTime = (timestamp?: number) => {
-    if (!timestamp) return "-";
+  const formatTime = (timestamp?: number | null) => {
+    if (timestamp == null) return "-";
     const date = new Date(timestamp * 1000);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -487,7 +487,7 @@ interface ExpandableServerRowProps {
   onToggleEnabled: (enabled: boolean) => void;
   isPending: boolean;
   getProtocolBadgeVariant: (protocol: string) => BadgeVariant;
-  formatTime: (timestamp?: number) => string;
+  formatTime: (timestamp?: number | null) => string;
 }
 
 function ExpandableServerRow({
@@ -569,12 +569,12 @@ function ExpandableServerRow({
 
         {/* 创建时间 */}
         <TableCell className="text-muted-foreground text-sm">
-          {formatTime(server.createdAt || server.created_at)}
+          {formatTime(server.createdAt)}
         </TableCell>
 
         {/* 最后使用 */}
         <TableCell className="text-muted-foreground text-sm">
-          {formatTime(server.lastSeen || server.last_seen)}
+          {formatTime(server.lastSeen)}
         </TableCell>
 
         {/* 状态 Badge - 呼吸效果 */}
@@ -650,7 +650,7 @@ function ExpandableServerRow({
                     <dt className="text-muted-foreground">
                       {t("created_at") || "创建时间"}
                     </dt>
-                    <dd>{formatTime(server.createdAt || server.created_at)}</dd>
+                    <dd>{formatTime(server.createdAt)}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">
@@ -662,7 +662,7 @@ function ExpandableServerRow({
                     <dt className="text-muted-foreground">
                       {t("last_seen") || "最后使用"}
                     </dt>
-                    <dd>{formatTime(server.lastSeen || server.last_seen)}</dd>
+                    <dd>{formatTime(server.lastSeen)}</dd>
                   </div>
                 </dl>
               </div>

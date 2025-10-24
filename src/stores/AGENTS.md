@@ -5,6 +5,7 @@
   - `setServers`/`addServer`/`updateServer`/`removeServer`/`toggleServerEnabled` 等 actions。
   - `persist` middleware 默认使用 `localStorage`，key 由 Zustand 自动生成；注意数据结构变更需考虑迁移。
   - `devtools` middleware 已启用，可在浏览器扩展观察状态。
+  - 自 2025-10-24 起新增 `selectEnabledServers` / `selectSelectedServer` / `selectProjects` 等纯函数选择器，用于组件、测试共享逻辑；`useEnabledServers` 等 Hook 基于这些 selector 封装，并通过 `shallow` 比较保持引用稳定。
 
 使用建议：
 

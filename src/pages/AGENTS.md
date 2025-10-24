@@ -6,15 +6,18 @@
 - React Query：`listMcpServers` + `toggleMcpEnabled` + `deleteMcpServer`。
 - 结合 `ServerDetailDrawer`、`AddServerDialog`、`ToolDetailDialog`。
 - 使用 `sonner` 提示、`lucide-react` 图标、Table/Switch 等 shadcn 组件。
+- 测试：`Servers.test.tsx` 覆盖加载渲染、过滤/快捷键交互、启用切换与删除确认、工具描述操作、时间格式化分支与工具加载中的提示等完整流程。
 
 ## Projects.tsx
 
 - 展示项目列表、允许配置允许的服务器/工具，调用 `listProjects`（以及相关 API）。
 - 复用 `components/ui` 与 `zustand` store 更新 UI 状态。
+- 单测：`Projects.test.ts`（工具字符串解析）、`Projects.interactions.test.tsx`（对话框提交流程、无服务器可选提示、权限/描述提交的错误分支）。
 
 ## Settings.tsx
 
 - 系统设置占位页，通常用于主题/语言切换或调试。
+- 测试：`Settings.test.tsx` 覆盖语言下拉切换与版本加载状态。
 
 ## servers-columns.tsx
 

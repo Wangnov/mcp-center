@@ -6,81 +6,50 @@
 /**
  * Supported MCP server protocols.
  */
-export type ServerProtocol = "stdio" | "sse" | "http" | "unknown";
+export type ServerProtocol = "stdio" | "sse" | "http" | "unknown"
 
-export type ServerSnapshot = {
-  id: string;
-  name: string;
-  protocol: ServerProtocol;
-  enabled: boolean;
-  toolCount: number;
-  createdAt: number | null;
-  lastSeen: number | null;
-};
+export type ServerSnapshot = { id: string; name: string; protocol: ServerProtocol; enabled: boolean; toolCount: number; createdAt: number | null; lastSeen: number | null }
 
-export type McpListResponse = { servers: ServerSnapshot[] };
+export type McpListResponse = { servers: ServerSnapshot[] }
 
-export type ProjectListResponse = { projects: ProjectSummary[] };
+export type ProjectListResponse = { projects: ProjectSummary[] }
 
-export type ToolSummary = {
-  name: string;
-  description: string | null;
-  serverId: string;
-  serverName: string;
-};
+export type ToolSummary = { name: string; description: string | null; serverId: string; serverName: string }
 
-export type ToolListResponse = { tools: ToolSummary[] };
+export type ToolListResponse = { tools: ToolSummary[] }
 
-export type ServerDetail = {
-  id: string;
-  name: string;
-  protocol: ServerProtocol;
-  enabled: boolean;
-  tool_count: number;
-  command: string | null;
-  args: string[];
-  url: string | null;
-  env: { [key: string]: string };
-  headers: { [key: string]: string };
-  created_at: number | null;
-  last_seen: number | null;
-};
+export type ServerDetail = { id: string; name: string; protocol: ServerProtocol; enabled: boolean; toolCount: number; command: string | null; args: string[]; url: string | null; env: { [key: string]: string }; headers: { [key: string]: string }; createdAt: number | null; lastSeen: number | null }
 
-export type ServerDetailResponse = {
-  server: ServerDetail;
-  tools: ToolSummary[];
-};
+export type ServerDetailResponse = { server: ServerDetail; tools: ToolSummary[] }
 
-export type ProjectSummary = {
-  id: string;
-  path: string;
-  display_name: string | null;
-  agent: string | null;
-  allowed_server_ids: string[];
-  created_at: number;
-  last_seen_at: number;
-};
+export type ProjectSummary = { id: string; path: string; displayName: string | null; agent: string | null; allowedServerIds: string[]; createdAt: number; lastSeenAt: number }
 
-export type CreateMcpRequest = {
-  name: string;
-  protocol: ServerProtocol;
-  command: string | null;
-  args: string | null;
-  endpoint: string | null;
-  env: { [key: string]: string } | null;
-  headers: { [key: string]: string } | null;
-};
+export type CreateMcpRequest = { name: string; protocol: ServerProtocol; command: string | null; args: string | null; endpoint: string | null; env: { [key: string]: string } | null; headers: { [key: string]: string } | null }
 
-export type UpdateMcpEnabled = { enabled: boolean };
+export type UpdateMcpEnabled = { enabled: boolean }
 
-export type ProjectAssignRequest = { target: string; servers: string[] };
+export type ProjectAssignRequest = { target: string; servers: string[] }
 
-export type ProjectToolsRequest = { target: string; tools: string[] };
+export type ProjectToolsRequest = { target: string; tools: string[] }
 
-export type ProjectToolDescRequest = {
-  target: string;
-  tool: string;
-  description: string;
-};
+export type ProjectToolDescRequest = { target: string; tool: string; description: string }
 
-export type ProjectToolResetRequest = { target: string; tool: string };
+export type ProjectToolResetRequest = { target: string; tool: string }
+
+export type LogFileSummary = { file: string; sizeBytes: number; lineCount: number; from: string | null; to: string | null }
+
+export type LogServerSummary = { serverId: string; files: LogFileSummary[] }
+
+export type LogListResponse = { servers: LogServerSummary[] }
+
+export type LogEntriesResponse = { serverId: string; file: string; entries: LogEntry[]; nextCursor: number | null; hasMore: boolean }
+
+export type LogEntry = { timestamp: string; level: LogLevel; category: LogCategory; message: string; server?: ServerContext | null; tool?: ToolContext | null; durationMs?: number | null; details?: any | null }
+
+export type ServerContext = { id: string; name: string }
+
+export type ToolContext = { name: string; callId: string }
+
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
+
+export type LogCategory = "mcpMessage" | "toolRequest" | "toolResponse" | "toolError"

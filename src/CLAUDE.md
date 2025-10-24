@@ -15,7 +15,7 @@
 
 - `App.tsx`：ThemeProvider、React Router、Toaster、TooltipProvider 的根布局（默认重定向 `/mcp`）。
 - `components/`：布局、对话框与业务组件（详见 `components/AGENTS.md`）。
-- `pages/`：按路由划分的页面（Servers/Projects/Settings）。
+- `pages/`：按路由划分的页面（Servers/Projects/Logs/Settings）。
 - `lib/`：与后端交互的 API 封装、Specta 生成的类型 (`api-types.generated.ts`)、工具函数。
 - `stores/`：zustand store 定义与 actions。
 - `hooks/`：自定义 Hook，如键盘快捷键。
@@ -34,3 +34,5 @@
 - UI 组件采用 shadcn 模式（复制到本地）；新增组件保持目录结构与导出方式一致。
 - React Query 使用 `queryKey` 进行缓存更新，页面内操作后务必 `invalidateQueries`。
 - 与后端通信通过 `src/lib/api.ts`，优先复用现有函数并同步 Specta 类型。
+- 单元/组件测试使用 `vitest` + Testing Library，执行 `npm run test`；测试默认位于 `src/**/?(*.)test.{ts,tsx}`。
+- 日志页面 `Logs.tsx` 通过 `useInfiniteQuery` + SSE (`openLogStream`) 组合实现分页与实时追踪；切换服务器/文件时记得清理 `EventSource` 并重置本地缓存。
