@@ -25,6 +25,7 @@ use tokio::{fs, net::TcpListener, task::JoinHandle};
 use tokio_stream::StreamExt;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info, warn};
+use url::form_urlencoded;
 
 use crate::{
     CoreError, Layout,
@@ -341,7 +342,20 @@ impl HttpAuth {
             .map(|value| value == expected)
             .unwrap_or(false);
 
-        if matches_authorization || matches_custom {
+        let matches_query = req
+            .uri()
+            .query()
+            .map(|query| {
+                form_urlencoded::parse(query.as_bytes()).any(|(key, value)| {
+                    matches!(
+                        key.trim().to_ascii_lowercase().as_str(),
+                        "token" | "auth_token" | "access_token"
+                    ) && value.trim() == expected
+                })
+            })
+            .unwrap_or(false);
+
+        if matches_authorization || matches_custom || matches_query {
             return Ok(());
         }
 
@@ -512,7 +526,7 @@ async fn tail_server_logs(
     Path(server_id): Path<String>,
 ) -> Result<Sse<impl futures_core::stream::Stream<Item = Result<Event, Infallible>>>, ApiError> {
     let handle = state.manager.get_log_handle(&server_id).ok_or_else(|| {
-        ApiError::not_found(format!("server '{}' is not running or has no log stream", server_id))
+        ApiError::not_found(format!("server '{server_id}' is not running or has no log stream"))
     })?;
 
     let stream = logging::stream_server_logs(&handle).filter_map(|item| match item {

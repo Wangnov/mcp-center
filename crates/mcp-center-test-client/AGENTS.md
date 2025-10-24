@@ -44,3 +44,50 @@ src/
 - 运行 CLI 示例：`cargo run -p mcp-center-test-client -- list-tools stdio --cmd ./target/debug/mcp-center`.
 - 测试工具调用时建议显式调用 `shutdown()`，避免后台任务影响后续测试。
 - 若扩展新的传输协议，需同时在 `ConnectRequest`/`TransportCommand` 中添加分支。
+
+### CLI 实战速查
+
+当需要“手动”验证 `mcp-center serve` 的行为时，可以按以下顺序操作：
+
+1. **确保守护进程已启 HTTP 模式运行**（便于前端/SSE 观察日志）
+   ```bash
+   cargo run --bin mcp-center -- serve --http-bind 127.0.0.1:8787 [--http-auth-token <TOKEN>]
+   ```
+
+2. **用 stdio 方式连接守护进程并列出工具**
+   ```bash
+   cargo run -p mcp-center-test-client -- \
+     list-tools stdio \
+     --cmd ./target/debug/mcp-center
+   ```
+   - `--cmd` 指向本地编译的 `mcp-center`，内部会调用 `mcp-center connect` 与 daemon 建立桥接。
+
+3. **调用具体工具（以 Context7 的 `resolve-library-id` 为例）**
+   ```bash
+   cargo run -p mcp-center-test-client -- \
+     call-tool \
+     --name resolve-library-id \
+     --args-json '{"libraryName":"react"}' \
+     --pretty \
+     stdio \
+     --cmd ./target/debug/mcp-center
+   ```
+   - 通用参数（`--name`、`--args-json`、`--pretty` 等）放在 transport 子命令之前；
+   - transport 子命令（这里是 `stdio ...`）紧跟命令末尾。
+
+4. **切换到 SSE / HTTP 模式调试**（例如直接连远程服务）
+   ```bash
+   cargo run -p mcp-center-test-client -- \
+     call-tool \
+       --name read_wiki_structure \
+       --args-json '{"owner":"facebook","repo":"react"}' \
+     sse \
+       --url https://example.com/mcp/sse \
+       --auth-token <TOKEN>
+   ```
+
+5. **配合前端 `/logs` 页面或 CLI `mcp-center logs ...` 查看实时日志**，确认请求/响应是否如预期。
+
+常见陷阱：
+- 忘记指定 `--cmd`，就会看到 “failed to locate mcp-center binary”；
+- `--name`/`--args-json` 需要放在 transport 之前；否则 clap 会提示 “unexpected argument”，代表顺序写错。

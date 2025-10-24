@@ -5,11 +5,15 @@
 
 use mcp_center::{
     config::ServerProtocol,
-    daemon::server_manager::ServerSnapshot,
+    daemon::{
+        logging::{LogCategory, LogEntry, LogLevel, ServerContext, ToolContext},
+        server_manager::ServerSnapshot,
+    },
     web::http::{
-        CreateMcpRequest, McpListResponse, ProjectAssignRequest, ProjectListResponse,
-        ProjectSummary, ProjectToolDescRequest, ProjectToolResetRequest, ProjectToolsRequest,
-        ServerDetail, ServerDetailResponse, ToolListResponse, ToolSummary, UpdateMcpEnabled,
+        CreateMcpRequest, LogEntriesResponse, LogFileSummary, LogListResponse, LogServerSummary,
+        McpListResponse, ProjectAssignRequest, ProjectListResponse, ProjectSummary,
+        ProjectToolDescRequest, ProjectToolResetRequest, ProjectToolsRequest, ServerDetail,
+        ServerDetailResponse, ToolListResponse, ToolSummary, UpdateMcpEnabled,
     },
 };
 use specta::ts::{BigIntExportBehavior, ExportConfiguration, TsExportError};
@@ -32,6 +36,15 @@ const EXPORT_TARGETS: &[(&str, ExportFn)] = &[
     ("ProjectToolsRequest", specta::ts::export::<ProjectToolsRequest>),
     ("ProjectToolDescRequest", specta::ts::export::<ProjectToolDescRequest>),
     ("ProjectToolResetRequest", specta::ts::export::<ProjectToolResetRequest>),
+    ("LogFileSummary", specta::ts::export::<LogFileSummary>),
+    ("LogServerSummary", specta::ts::export::<LogServerSummary>),
+    ("LogListResponse", specta::ts::export::<LogListResponse>),
+    ("LogEntriesResponse", specta::ts::export::<LogEntriesResponse>),
+    ("LogEntry", specta::ts::export::<LogEntry>),
+    ("ServerContext", specta::ts::export::<ServerContext>),
+    ("ToolContext", specta::ts::export::<ToolContext>),
+    ("LogLevel", specta::ts::export::<LogLevel>),
+    ("LogCategory", specta::ts::export::<LogCategory>),
 ];
 
 fn main() {

@@ -412,6 +412,51 @@ impl Messages {
         interpolate(self.text("project.not_found"), &[("target", target.to_string())])
     }
 
+    pub fn logs_list_header(
+        &self,
+    ) -> (&'static str, &'static str, &'static str, &'static str, &'static str) {
+        (
+            self.text("logs.list.header.server"),
+            self.text("logs.list.header.file"),
+            self.text("logs.list.header.size"),
+            self.text("logs.list.header.lines"),
+            self.text("logs.list.header.range"),
+        )
+    }
+
+    pub fn logs_no_files(&self) -> &'static str {
+        self.text("logs.list.no_files")
+    }
+
+    pub fn logs_no_files_for(&self, server: &str) -> String {
+        interpolate(self.text("logs.list.no_files_for"), &[("server", server.to_string())])
+    }
+
+    pub fn logs_file_not_found(&self, server: &str, file: &str) -> String {
+        interpolate(
+            self.text("logs.file.not_found"),
+            &[("server", server.to_string()), ("file", file.to_string())],
+        )
+    }
+
+    pub fn logs_show_header(&self, count: usize, file: &str) -> String {
+        interpolate(
+            self.text("logs.show.header"),
+            &[("count", count.to_string()), ("file", file.to_string())],
+        )
+    }
+
+    pub fn logs_show_no_entries(&self) -> &'static str {
+        self.text("logs.show.no_entries")
+    }
+
+    pub fn logs_tail_following(&self, server: &str, file: &str) -> String {
+        interpolate(
+            self.text("logs.tail.following"),
+            &[("server", server.to_string()), ("file", file.to_string())],
+        )
+    }
+
     fn render_core_error(&self, error: &CoreError) -> String {
         let message = self.text(error.message_key());
         let placeholders = error.placeholders();
@@ -499,6 +544,10 @@ fn english_text(key: &str) -> &'static str {
         "command.project.list.about" => "List known projects and their allowed servers.",
         "command.project.allow.about" => "Allow a project to use specific servers.",
         "command.project.deny.about" => "Remove servers from a project's allow list.",
+        "command.logs.about" => "Inspect MCP server logs.",
+        "command.logs.list.about" => "List available log files.",
+        "command.logs.show.about" => "Show recent log entries for a server.",
+        "command.logs.tail.about" => "Stream log entries in real time.",
         "args.serve.http_bind" => {
             "Bind the HTTP API to the specified address (e.g. 127.0.0.1:8787)."
         }
@@ -525,6 +574,11 @@ fn english_text(key: &str) -> &'static str {
         "args.project_add.path" => "Project path (optional, defaults to current directory).",
         "args.project_remove.target" => "Project path or ID to remove.",
         "args.project_remove.yes" => "Remove without prompting for confirmation.",
+        "args.logs.server" => "Server identifier.",
+        "args.logs.file" => "Log filename (for example 20250108.log).",
+        "args.logs.limit" => "Number of recent entries to display.",
+        "args.logs.json" => "Output log entries as raw JSON lines.",
+        "args.logs.from_start" => "Do not skip existing content when tailing.",
         "init.workspace_exists" => "Workspace initialized at {root}",
         "init.workspace_created" => "Workspace initialized at {root}\nSample config: {sample}",
         "init.sample_added" => "Added sample config: {path}",
@@ -635,6 +689,19 @@ fn english_text(key: &str) -> &'static str {
         "tools.desc.reset" => "Description reset to default for tool '{tool}'",
         "tools.desc.not_customized" => "Tool '{tool}' has no custom description",
         "project.not_found" => "Project not found: {target}",
+        "logs.list.no_files" => "No log files found.",
+        "logs.list.no_files_for" => "No log files found for MCP server '{server}'.",
+        "logs.list.header.server" => "MCP Server",
+        "logs.list.header.file" => "File",
+        "logs.list.header.size" => "Size",
+        "logs.list.header.lines" => "Lines",
+        "logs.list.header.range" => "Time Range",
+        "logs.file.not_found" => "No log file '{file}' found for server '{server}'.",
+        "logs.show.header" => "Showing latest {count} entries from {file}",
+        "logs.show.no_entries" => "No log entries found for the selected file.",
+        "logs.tail.following" => {
+            "Tailing MCP server '{server}' (file: {file}). Press Ctrl+C to stop."
+        }
         _ => panic!("missing English text for key '{key}'"),
     }
 }
@@ -660,6 +727,10 @@ fn zh_hans_text(key: &str) -> Option<&'static str> {
         "command.project.list.about" => "列出已记录的项目及其允许使用的 MCP 服务器。",
         "command.project.allow.about" => "为项目允许使用指定 MCP 服务器。",
         "command.project.deny.about" => "从项目的允许列表中移除 MCP 服务器。",
+        "command.logs.about" => "查看 MCP 服务器日志。",
+        "command.logs.list.about" => "列出可用的日志文件。",
+        "command.logs.show.about" => "查看服务器的最新日志条目。",
+        "command.logs.tail.about" => "实时跟踪服务器日志输出。",
         "args.serve.http_bind" => "绑定 HTTP API 的监听地址（例如 127.0.0.1:8787）。",
         "args.serve.http_auth_token" => {
             "设置 HTTP API 鉴权 Token（或使用 MCP_CENTER_HTTP_TOKEN）。"
@@ -680,6 +751,11 @@ fn zh_hans_text(key: &str) -> Option<&'static str> {
         "args.project_add.path" => "项目路径（可选，默认为当前目录）。",
         "args.project_remove.target" => "要移除的项目路径或 ID。",
         "args.project_remove.yes" => "跳过确认直接移除。",
+        "args.logs.server" => "服务器 ID。",
+        "args.logs.file" => "日志文件名（例如 20250108.log）。",
+        "args.logs.limit" => "显示的最新日志条数。",
+        "args.logs.json" => "以原始 JSON 行输出日志。",
+        "args.logs.from_start" => "从文件开头开始输出，不跳过现有内容。",
         "init.workspace_exists" => "工作区已初始化：{root}",
         "init.workspace_created" => "工作区已初始化：{root}\n示例配置：{sample}",
         "init.sample_added" => "已添加示例配置：{path}",
@@ -786,6 +862,19 @@ fn zh_hans_text(key: &str) -> Option<&'static str> {
         "tools.desc.reset" => "已将工具 '{tool}' 的描述重置为默认值",
         "tools.desc.not_customized" => "工具 '{tool}' 没有自定义描述",
         "project.not_found" => "未找到项目：{target}",
+        "logs.list.no_files" => "尚未找到任何日志文件。",
+        "logs.list.no_files_for" => "MCP 服务器“{server}”没有日志文件。",
+        "logs.list.header.server" => "MCP 服务器",
+        "logs.list.header.file" => "文件",
+        "logs.list.header.size" => "大小",
+        "logs.list.header.lines" => "行数",
+        "logs.list.header.range" => "时间范围",
+        "logs.file.not_found" => "服务器“{server}”未找到日志文件“{file}”。",
+        "logs.show.header" => "显示最新 {count} 条记录（文件：{file}）",
+        "logs.show.no_entries" => "所选日志文件没有可显示的记录。",
+        "logs.tail.following" => {
+            "正在跟踪 MCP 服务器“{server}”的日志（文件：{file}），按 Ctrl+C 退出。"
+        }
         other => return Some(english_text(other)),
     })
 }
@@ -811,6 +900,10 @@ fn zh_hant_text(key: &str) -> Option<&'static str> {
         "command.project.list.about" => "列出已記錄的專案與允許使用的伺服器。",
         "command.project.allow.about" => "將指定伺服器加入專案的允許清單。",
         "command.project.deny.about" => "從專案的允許清單移除伺服器。",
+        "command.logs.about" => "檢視 MCP 伺服器日誌。",
+        "command.logs.list.about" => "列出可用的日誌檔案。",
+        "command.logs.show.about" => "檢視伺服器的最新日誌條目。",
+        "command.logs.tail.about" => "即時串流伺服器日誌。",
         "args.serve.http_bind" => "綁定 HTTP API 的監聽位址（例如 127.0.0.1:8787）。",
         "args.serve.http_auth_token" => {
             "設定 HTTP API 鑑權 Token（或使用 MCP_CENTER_HTTP_TOKEN）。"
@@ -831,6 +924,11 @@ fn zh_hant_text(key: &str) -> Option<&'static str> {
         "args.project_add.path" => "專案路徑（可選，預設為目前目錄）。",
         "args.project_remove.target" => "要移除的專案路徑或 ID。",
         "args.project_remove.yes" => "略過確認直接移除。",
+        "args.logs.server" => "伺服器 ID。",
+        "args.logs.file" => "日誌檔案名稱（例如 20250108.log）。",
+        "args.logs.limit" => "要顯示的最新日誌筆數。",
+        "args.logs.json" => "以原始 JSON 行輸出日誌。",
+        "args.logs.from_start" => "從檔案開頭開始輸出，不略過既有內容。",
         "init.workspace_exists" => "工作區已初始化：{root}",
         "init.workspace_created" => "工作區已初始化：{root}\n範例設定：{sample}",
         "init.sample_added" => "已新增範例設定：{path}",
@@ -909,6 +1007,19 @@ fn zh_hant_text(key: &str) -> Option<&'static str> {
         "core.serialise_toml_failed" => "序列化伺服器定義到 TOML 失敗：{error}",
         "core.remove_file_failed" => "刪除 {path} 失敗：{error}",
         "core.home_dir_unknown" => "無法判定使用者家目錄（MCP_CENTER_ROOT）",
+        "logs.list.no_files" => "尚未找到任何日誌檔案。",
+        "logs.list.no_files_for" => "MCP 伺服器「{server}」沒有日誌檔案。",
+        "logs.list.header.server" => "MCP 伺服器",
+        "logs.list.header.file" => "檔案",
+        "logs.list.header.size" => "大小",
+        "logs.list.header.lines" => "行數",
+        "logs.list.header.range" => "時間範圍",
+        "logs.file.not_found" => "MCP 伺服器「{server}」未找到日誌檔案「{file}」。",
+        "logs.show.header" => "顯示最新 {count} 筆紀錄（檔案：{file}）",
+        "logs.show.no_entries" => "所選日誌檔案沒有可顯示的紀錄。",
+        "logs.tail.following" => {
+            "正在串流 MCP 伺服器「{server}」的日誌（檔案：{file}），按 Ctrl+C 結束。"
+        }
         other => return Some(english_text(other)),
     })
 }
@@ -936,6 +1047,10 @@ fn ja_text(key: &str) -> Option<&'static str> {
         }
         "command.project.allow.about" => "プロジェクトに利用可能なサーバーを追加します。",
         "command.project.deny.about" => "プロジェクトの許可リストからサーバーを削除します。",
+        "command.logs.about" => "MCP サーバーのログを確認します。",
+        "command.logs.list.about" => "利用可能なログファイルを一覧表示します。",
+        "command.logs.show.about" => "サーバーの最新ログを表示します。",
+        "command.logs.tail.about" => "ログをリアルタイムでストリーム表示します。",
         "args.serve.http_bind" => {
             "HTTP API をバインドするアドレスを指定します（例: 127.0.0.1:8787）。"
         }
@@ -960,6 +1075,11 @@ fn ja_text(key: &str) -> Option<&'static str> {
         "args.project_add.path" => "プロジェクトのパス（オプション、既定値は現在のディレクトリ）。",
         "args.project_remove.target" => "削除するプロジェクトのパスまたは ID。",
         "args.project_remove.yes" => "確認を省略して削除します。",
+        "args.logs.server" => "サーバー ID。",
+        "args.logs.file" => "ログファイル名（例: 20250108.log）。",
+        "args.logs.limit" => "表示する最新ログ件数。",
+        "args.logs.json" => "ログを JSON 行として出力します。",
+        "args.logs.from_start" => "ファイルの冒頭から出力し、既存の内容をスキップしません。",
         "init.workspace_exists" => "ワークスペースはすでに初期化されています: {root}",
         "init.workspace_created" => {
             "ワークスペースを初期化しました: {root}\nサンプル設定: {sample}"
@@ -1063,6 +1183,21 @@ fn ja_text(key: &str) -> Option<&'static str> {
         "core.remove_file_failed" => "{path} の削除に失敗しました: {error}",
         "core.home_dir_unknown" => {
             "ユーザーのホームディレクトリ（MCP_CENTER_ROOT）を判別できません"
+        }
+        "logs.list.no_files" => "ログファイルはまだありません。",
+        "logs.list.no_files_for" => "MCP サーバー「{server}」にはログファイルがありません。",
+        "logs.list.header.server" => "MCP サーバー",
+        "logs.list.header.file" => "ファイル",
+        "logs.list.header.size" => "サイズ",
+        "logs.list.header.lines" => "行数",
+        "logs.list.header.range" => "期間",
+        "logs.file.not_found" => {
+            "MCP サーバー「{server}」にログファイル「{file}」が見つかりません。"
+        }
+        "logs.show.header" => "最新 {count} 件を表示中（ファイル: {file}）",
+        "logs.show.no_entries" => "選択したログファイルには表示できる記録がありません。",
+        "logs.tail.following" => {
+            "MCP サーバー「{server}」のログを追跡中です（ファイル: {file}）。Ctrl+C で停止します。"
         }
         other => return Some(english_text(other)),
     })

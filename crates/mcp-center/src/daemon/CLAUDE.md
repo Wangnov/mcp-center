@@ -45,5 +45,7 @@
 - 控制 socket 改为使用 `interprocess` 跨平台本地 socket，Unix/Windows 行为一致（Unix 仍需删除残留文件）。
 - `server_manager` 使用 tokio + rmcp；处理 async 错误时多返回 `anyhow` 或 `McpError`，上层需充分日志。
 - 工具缓存：调用 `list_tools`/`call_tool` 前先 `ensure_tool_cache()`，倚赖 `needs_refresh` 标志；若新增通知类型需同步设置。
-- 日志写入：所有日志写入经 `ServerLogHandle`，同一入口生成结构化 JSON（MCP Logging、工具调用 request/response/error），落盘位置 `<logs>/<serverId>.log`，后续轮转/查询在此基础上扩展。
+- 日志写入：所有日志写入经 `ServerLogHandle`，同一入口生成结构化 JSON（MCP Logging、工具调用 request/response/error），落盘位置 `<logs>/servers/<serverId>/<YYYYMMDD>.log`，后续轮转/查询在此基础上扩展。
+- HTTP 日志接口：`GET /api/logs/servers` 返回各服务器的日志摘要、`GET /api/logs/entries` 分页读取 JSONL 记录、`GET /api/logs/tail/:server_id` 通过 SSE 推送实时日志（支持 `?token=` 查询参数进行鉴权）。
+- CLI `mcp-center logs` 子命令复用上述 JSONL 文件，包含 `list`/`show`/`tail`，追踪模式默认从文件末尾开始，可透过 `--from-start` 读取全部历史。
 - 清理：daemon 停止后需删除 rpc socket/控制 socket/pid 文件；`serve` 里已有基础处理，新增资源时别忘记清理。

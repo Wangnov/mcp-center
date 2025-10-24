@@ -1,26 +1,33 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     env, fs,
-    io::{self, Write},
+    io::{self, SeekFrom, Write},
     path::PathBuf,
     process,
+    time::Duration as StdDuration,
 };
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{ArgAction, Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
-use mcp_center::daemon::rpc::{DaemonRequest, DaemonResponse, ResponseData};
+use interprocess::local_socket::traits::tokio::Stream as _;
+use interprocess::local_socket::{GenericFilePath, ToFsName, tokio::prelude::LocalSocketStream};
+use mcp_center::cli_i18n as i18n;
+use mcp_center::daemon::{
+    logging::{self, LogEntry, LogFileMeta, LogLevel},
+    rpc::{DaemonRequest, DaemonResponse, ResponseData},
+};
 use mcp_center::project::{ToolCustomization, ToolPermission};
 use mcp_center::{
     Layout, ProjectId, ProjectRecord, ProjectRegistry, ServerConfig, ServerDefinition,
     ServerProtocol, default_root,
 };
-
-use interprocess::local_socket::traits::tokio::Stream as _;
-use interprocess::local_socket::{GenericFilePath, ToFsName, tokio::prelude::LocalSocketStream};
-use mcp_center::cli_i18n as i18n;
 use serde_json::json;
 use time::OffsetDateTime;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::{
+    fs::OpenOptions,
+    io::{AsyncBufReadExt, AsyncSeekExt, AsyncWriteExt, BufReader},
+    time::sleep,
+};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -67,6 +74,12 @@ enum Command {
         #[command(subcommand)]
         command: ProjectCommand,
     },
+
+    #[command(about = "i18n:command.logs.about")]
+    Logs {
+        #[command(subcommand)]
+        command: LogsCommand,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -107,6 +120,16 @@ enum ProjectCommand {
     SetToolDesc(ProjectToolDescArgs),
     #[command(about = "i18n:command.project.reset_tool_desc.about")]
     ResetToolDesc(ProjectResetToolDescArgs),
+}
+
+#[derive(Subcommand, Debug)]
+enum LogsCommand {
+    #[command(about = "i18n:command.logs.list.about")]
+    List(LogsListArgs),
+    #[command(about = "i18n:command.logs.show.about")]
+    Show(LogsShowArgs),
+    #[command(about = "i18n:command.logs.tail.about")]
+    Tail(LogsTailArgs),
 }
 
 #[derive(Args, Debug)]
@@ -220,6 +243,39 @@ struct ProjectResetToolDescArgs {
     tool_name: String,
 }
 
+#[derive(Args, Debug)]
+struct LogsListArgs {
+    #[arg(long, value_name = "SERVER", help = "i18n:args.logs.server")]
+    server: Option<String>,
+}
+
+#[derive(Args, Debug)]
+struct LogsShowArgs {
+    #[arg(value_name = "SERVER", help = "i18n:args.logs.server")]
+    server: String,
+    #[arg(long, value_name = "FILE", help = "i18n:args.logs.file")]
+    file: Option<String>,
+    #[arg(
+        long,
+        value_name = "LIMIT",
+        default_value_t = 200,
+        help = "i18n:args.logs.limit"
+    )]
+    limit: usize,
+    #[arg(long, action = ArgAction::SetTrue, help = "i18n:args.logs.json")]
+    json: bool,
+}
+
+#[derive(Args, Debug)]
+struct LogsTailArgs {
+    #[arg(value_name = "SERVER", help = "i18n:args.logs.server")]
+    server: String,
+    #[arg(long, value_name = "FILE", help = "i18n:args.logs.file")]
+    file: Option<String>,
+    #[arg(long, action = ArgAction::SetTrue, help = "i18n:args.logs.from_start")]
+    from_start: bool,
+}
+
 #[derive(Copy, Clone, Debug, ValueEnum)]
 enum ProtocolArg {
     #[value(name = "stdio")]
@@ -277,6 +333,10 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Project { command } => {
             let layout = resolve_layout(cli.root.clone())?;
             handle_project_command(&layout, command)
+        }
+        Command::Logs { command } => {
+            let layout = resolve_layout(cli.root.clone())?;
+            handle_logs_command(&layout, command).await
         }
     }
 }
@@ -681,6 +741,14 @@ fn handle_project_command(layout: &Layout, command: ProjectCommand) -> Result<()
         ProjectCommand::DenyTools(args) => handle_project_deny_tools(layout, args),
         ProjectCommand::SetToolDesc(args) => handle_project_set_tool_desc(layout, args),
         ProjectCommand::ResetToolDesc(args) => handle_project_reset_tool_desc(layout, args),
+    }
+}
+
+async fn handle_logs_command(layout: &Layout, command: LogsCommand) -> Result<()> {
+    match command {
+        LogsCommand::List(args) => handle_logs_list(layout, args).await,
+        LogsCommand::Show(args) => handle_logs_show(layout, args).await,
+        LogsCommand::Tail(args) => handle_logs_tail(layout, args).await,
     }
 }
 
@@ -1143,6 +1211,141 @@ fn handle_project_reset_tool_desc(layout: &Layout, args: ProjectResetToolDescArg
     Ok(())
 }
 
+async fn handle_logs_list(layout: &Layout, args: LogsListArgs) -> Result<()> {
+    let messages = i18n::messages();
+    layout.ensure()?;
+
+    let mut server_ids = BTreeSet::new();
+    if let Some(server) = args.server.clone() {
+        server_ids.insert(server);
+    } else {
+        for config in layout.list_server_configs()? {
+            server_ids.insert(config.definition().id.clone());
+        }
+        if let Ok(mut entries) = tokio::fs::read_dir(layout.server_logs_dir()).await {
+            while let Some(entry) = entries.next_entry().await? {
+                if entry.file_type().await?.is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        server_ids.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    let mut rows: Vec<(String, LogFileMeta)> = Vec::new();
+    for server_id in &server_ids {
+        let metas = logging::list_server_log_files(layout, server_id).await?;
+        if metas.is_empty() && args.server.is_some() {
+            println!("{}", messages.logs_no_files_for(server_id));
+        }
+        for meta in metas {
+            rows.push((server_id.clone(), meta));
+        }
+    }
+
+    if rows.is_empty() {
+        if args.server.is_none() {
+            println!("{}", messages.logs_no_files());
+        }
+        return Ok(());
+    }
+
+    let (server_header, file_header, size_header, lines_header, range_header) =
+        messages.logs_list_header();
+    println!(
+        "{server_header:<20}  {file_header:<16}  {size_header:>10}  {lines_header:>10}  {range_header}"
+    );
+    for (server_id, meta) in rows {
+        println!(
+            "{:<20}  {:<16}  {:>10}  {:>10}  {}",
+            server_id,
+            meta.file_name,
+            format_size(meta.file_size),
+            meta.line_count,
+            format_range(&meta)
+        );
+    }
+    Ok(())
+}
+
+async fn handle_logs_show(layout: &Layout, args: LogsShowArgs) -> Result<()> {
+    let messages = i18n::messages();
+    layout.ensure()?;
+
+    let files = logging::list_server_log_files(layout, &args.server).await?;
+    if files.is_empty() {
+        println!("{}", messages.logs_no_files_for(&args.server));
+        return Ok(());
+    }
+
+    let target = select_log_file(&files, args.file.as_deref(), &args.server)?;
+    let limit = args.limit.max(1);
+    let offset = target.line_count.saturating_sub(limit as u64);
+    let page = logging::read_log_entries(&target.path, offset, limit).await?;
+
+    if page.entries.is_empty() {
+        println!("{}", messages.logs_show_no_entries());
+        return Ok(());
+    }
+
+    println!("{}", messages.logs_show_header(page.entries.len(), &target.file_name));
+    for entry in page.entries {
+        print_log_entry(&entry, args.json);
+    }
+    Ok(())
+}
+
+async fn handle_logs_tail(layout: &Layout, args: LogsTailArgs) -> Result<()> {
+    let messages = i18n::messages();
+    layout.ensure()?;
+
+    let files = logging::list_server_log_files(layout, &args.server).await?;
+    if files.is_empty() {
+        println!("{}", messages.logs_no_files_for(&args.server));
+        return Ok(());
+    }
+
+    let target = select_log_file(&files, args.file.as_deref(), &args.server)?;
+    let mut file = OpenOptions::new()
+        .read(true)
+        .open(&target.path)
+        .await
+        .with_context(|| format!("failed to open log file {}", target.path.display()))?;
+
+    if args.from_start {
+        file.seek(SeekFrom::Start(0)).await?;
+    } else {
+        file.seek(SeekFrom::End(0)).await?;
+    }
+
+    let mut reader = BufReader::new(file);
+    let mut buffer = String::new();
+
+    println!("{}", messages.logs_tail_following(&args.server, &target.file_name));
+
+    loop {
+        buffer.clear();
+        let bytes = reader.read_line(&mut buffer).await?;
+        if bytes == 0 {
+            sleep(StdDuration::from_millis(500)).await;
+            continue;
+        }
+        if buffer.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<LogEntry>(buffer.trim_end()) {
+            Ok(entry) => {
+                print_log_entry(&entry, false);
+                let _ = io::stdout().flush();
+            }
+            Err(err) => {
+                eprintln!("{} {}", messages.error_prefix(), err);
+            }
+        }
+    }
+}
+
 // Helper function to load project record by path or ID
 fn load_project_record(registry: &ProjectRegistry, target: &str) -> Result<ProjectRecord> {
     let messages = i18n::messages();
@@ -1159,5 +1362,124 @@ fn load_project_record(registry: &ProjectRegistry, target: &str) -> Result<Proje
     match registry.load_from_id_str(target) {
         Ok(record) => Ok(record),
         Err(_) => bail!("{}", messages.project_not_found(target)),
+    }
+}
+
+fn select_log_file<'a>(
+    files: &'a [LogFileMeta],
+    requested: Option<&str>,
+    server: &str,
+) -> Result<&'a LogFileMeta> {
+    if let Some(name) = requested {
+        files
+            .iter()
+            .find(|meta| meta.file_name == name)
+            .ok_or_else(|| anyhow!(i18n::messages().logs_file_not_found(server, name)))
+    } else {
+        files.last().ok_or_else(|| anyhow!(i18n::messages().logs_no_files_for(server)))
+    }
+}
+
+fn format_size(bytes: u64) -> String {
+    const KB: f64 = 1024.0;
+    const MB: f64 = KB * 1024.0;
+    const GB: f64 = MB * 1024.0;
+
+    let value = bytes as f64;
+    if value >= GB {
+        format!("{:.2} GB", value / GB)
+    } else if value >= MB {
+        format!("{:.2} MB", value / MB)
+    } else if value >= KB {
+        format!("{:.2} KB", value / KB)
+    } else {
+        format!("{bytes} B")
+    }
+}
+
+fn format_range(meta: &LogFileMeta) -> String {
+    match (&meta.first_timestamp, &meta.last_timestamp) {
+        (Some(start), Some(end)) if start == end => start.clone(),
+        (Some(start), Some(end)) => format!("{start} → {end}"),
+        (Some(start), None) => start.clone(),
+        (None, Some(end)) => end.clone(),
+        _ => "-".to_string(),
+    }
+}
+
+fn print_log_entry(entry: &LogEntry, as_json: bool) {
+    if as_json {
+        match serde_json::to_string(entry) {
+            Ok(line) => println!("{line}"),
+            Err(err) => eprintln!("{} {}", i18n::messages().error_prefix(), err),
+        }
+        return;
+    }
+
+    let level = format_level(entry.level);
+    let mut context_parts = Vec::new();
+    if let Some(server) = entry.server.as_ref() {
+        context_parts.push(format!("server={}", server.id));
+    }
+    if let Some(tool) = entry.tool.as_ref() {
+        context_parts.push(format!("tool={}", tool.name));
+        context_parts.push(format!("call={}", truncate_call_id(&tool.call_id)));
+    }
+    if let Some(duration) = entry.duration_ms {
+        context_parts.push(format!("duration={}", format_duration(duration)));
+    }
+
+    if context_parts.is_empty() {
+        println!("{} [{}] {}", entry.timestamp, level, entry.message);
+    } else {
+        println!(
+            "{} [{}] {} ({})",
+            entry.timestamp,
+            level,
+            entry.message,
+            context_parts.join(", ")
+        );
+    }
+
+    if let Some(details) = entry.details.as_ref() {
+        if !details.is_null() {
+            println!("    details:");
+            match serde_json::to_string_pretty(details) {
+                Ok(json) => {
+                    for line in json.lines() {
+                        println!("      {line}");
+                    }
+                }
+                Err(_) => println!("      {details}"),
+            }
+        }
+    }
+}
+
+fn format_level(level: LogLevel) -> &'static str {
+    match level {
+        LogLevel::Trace => "TRACE",
+        LogLevel::Debug => "DEBUG",
+        LogLevel::Info => "INFO",
+        LogLevel::Warn => "WARN",
+        LogLevel::Error => "ERROR",
+    }
+}
+
+fn truncate_call_id(call_id: &str) -> String {
+    const MAX_LEN: usize = 8;
+    if call_id.len() <= MAX_LEN {
+        call_id.to_string()
+    } else {
+        format!("{}…", &call_id[..MAX_LEN])
+    }
+}
+
+fn format_duration(ms: u128) -> String {
+    if ms >= 1000 {
+        let seconds = ms as f64 / 1000.0;
+        format!("{seconds:.2}s")
+    } else {
+        format!("{ms}ms")
     }
 }
