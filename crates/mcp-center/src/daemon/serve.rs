@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use clap::Args;
 use tokio::signal;
 use tracing::{debug, error, info, warn};
+use tracing_appender::{non_blocking::WorkerGuard, rolling};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 use crate::{
@@ -27,9 +28,12 @@ pub struct ServeArgs {
     pub http_auth_token: Option<String>,
 }
 
-pub async fn run(args: ServeArgs) -> Result<()> {
-    init_tracing();
-    if let Err(err) = run_impl(args).await {
+pub async fn run(mut args: ServeArgs) -> Result<()> {
+    let layout = resolve_layout(args.root.clone())?;
+    layout.ensure()?;
+    let _tracing_guard = init_tracing(&layout)?;
+
+    if let Err(err) = run_impl(layout, &mut args).await {
         error!(error = ?err, "daemon terminated with error");
         return Err(err);
     }
@@ -37,15 +41,14 @@ pub async fn run(args: ServeArgs) -> Result<()> {
     Ok(())
 }
 
-async fn run_impl(args: ServeArgs) -> Result<()> {
-    let ServeArgs { root, http_bind, mut http_auth_token } = args;
-
+async fn run_impl(layout: Layout, args: &mut ServeArgs) -> Result<()> {
+    let ServeArgs { http_bind, http_auth_token, .. } = args;
+    let http_bind = *http_bind;
+    let mut http_auth_token = http_auth_token.take();
     if http_auth_token.is_none() {
         http_auth_token = std::env::var("MCP_CENTER_HTTP_TOKEN").ok();
     }
 
-    let layout = resolve_layout(root)?;
-    layout.ensure()?;
     let registry = ProjectRegistry::new(&layout);
     registry.ensure()?;
 
@@ -149,16 +152,36 @@ fn dirs_home() -> Option<PathBuf> {
     None
 }
 
-fn init_tracing() {
+fn init_tracing(layout: &Layout) -> Result<WorkerGuard> {
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new("info"))
         .unwrap();
 
-    let fmt_layer = fmt::layer()
+    let stderr_layer = fmt::layer()
         .with_target(true)
         .with_file(true)
         .with_line_number(true)
         .with_writer(std::io::stderr);
 
-    tracing_subscriber::registry().with(env_filter).with(fmt_layer).init();
+    let daemon_log_dir = layout.logs_dir().join("daemon");
+    std::fs::create_dir_all(&daemon_log_dir).with_context(|| {
+        format!("failed to create daemon log directory {}", daemon_log_dir.display())
+    })?;
+    let file_appender = rolling::hourly(daemon_log_dir, "daemon.log");
+    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+
+    let file_layer = fmt::layer()
+        .with_target(true)
+        .with_file(true)
+        .with_line_number(true)
+        .json()
+        .with_writer(file_writer);
+
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(stderr_layer)
+        .with(file_layer)
+        .init();
+
+    Ok(guard)
 }

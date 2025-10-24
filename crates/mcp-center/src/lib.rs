@@ -29,6 +29,8 @@ pub mod daemon {
     pub mod control;
     #[path = "../daemon/host.rs"]
     pub mod host;
+    #[path = "../daemon/logging.rs"]
+    pub mod logging;
     #[path = "../daemon/rpc.rs"]
     pub mod rpc;
     #[path = "../daemon/server_manager.rs"]

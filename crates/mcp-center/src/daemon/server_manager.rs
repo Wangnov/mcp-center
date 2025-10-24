@@ -8,6 +8,7 @@ use std::{
     },
 };
 
+use super::logging::ServerLogHandle;
 use crate::{Layout, ServerDefinition, ServerProtocol};
 use anyhow::{Context, Result, anyhow};
 use rmcp::{
@@ -23,15 +24,16 @@ use rmcp::{
     },
 };
 use tokio::{
-    fs::{self, OpenOptions},
+    fs,
     sync::{Mutex, RwLock},
 };
 use tracing::{debug, info, warn};
 
 use serde::Serialize;
-use serde_json::to_vec;
 use specta::Type;
-use tokio::io::AsyncWriteExt;
+use uuid::Uuid;
+
+use std::time::Instant;
 
 #[derive(Clone, Debug)]
 pub struct ToolEntry {
@@ -340,6 +342,7 @@ struct ManagedServer {
     runtime: Mutex<ServerRuntime>,
     tools: RwLock<Vec<Tool>>,
     needs_refresh: Arc<AtomicBool>,
+    log: ServerLogHandle,
 }
 
 struct ServerRuntime {
@@ -351,17 +354,11 @@ struct ServerRuntime {
 impl ManagedServer {
     async fn launch(layout: &Layout, definition: ServerDefinition) -> Result<Arc<Self>> {
         let log_path = layout.server_log_path(&definition.id);
-        fs::write(&log_path, &[])
-            .await
-            .with_context(|| format!("failed to prepare log file {}", log_path.display()))?;
-
         let needs_refresh = Arc::new(AtomicBool::new(true));
-        let adapter = ServerAdapter::new(
-            definition.name.clone().unwrap_or_else(|| definition.id.clone()),
-            log_path.clone(),
-            needs_refresh.clone(),
-        )
-        .await?;
+        let server_name = definition.name.clone().unwrap_or_else(|| definition.id.clone());
+        let log =
+            ServerLogHandle::new(definition.id.clone(), server_name, log_path.clone()).await?;
+        let adapter = ServerAdapter::new(log.clone(), needs_refresh.clone());
 
         match definition.protocol {
             ServerProtocol::StdIo => {
@@ -376,6 +373,7 @@ impl ManagedServer {
                     }),
                     tools: RwLock::new(Vec::new()),
                     needs_refresh,
+                    log,
                 });
                 Ok(server)
             }
@@ -396,6 +394,7 @@ impl ManagedServer {
                     }),
                     tools: RwLock::new(Vec::new()),
                     needs_refresh,
+                    log,
                 });
                 Ok(server)
             }
@@ -528,6 +527,9 @@ impl ManagedServer {
         &self,
         params: CallToolRequestParam,
     ) -> Result<CallToolResult, ServiceError> {
+        let call_id = Uuid::new_v4().to_string();
+        let tool_name = params.name.clone().into_owned();
+        let arguments_snapshot = params.arguments.clone();
         let peer = {
             let runtime = self.runtime.lock().await;
             runtime
@@ -536,7 +538,47 @@ impl ManagedServer {
                 .map(|client| client.peer().clone())
                 .ok_or_else(|| ServiceError::TransportClosed)?
         };
-        peer.call_tool(params).await
+        if let Err(err) = self
+            .log
+            .log_tool_request(&call_id, &tool_name, arguments_snapshot.as_ref())
+            .await
+        {
+            warn!(
+                error = ?err,
+                server_id = %self.definition.id,
+                tool = %tool_name,
+                "failed to record tool request log entry"
+            );
+        }
+        let start = Instant::now();
+        match peer.call_tool(params).await {
+            Ok(result) => {
+                if let Err(err) =
+                    self.log.log_tool_response(&call_id, &tool_name, start.elapsed(), &result).await
+                {
+                    warn!(
+                        error = ?err,
+                        server_id = %self.definition.id,
+                        tool = %tool_name,
+                        "failed to record tool response log entry"
+                    );
+                }
+                Ok(result)
+            }
+            Err(err) => {
+                if let Err(log_err) =
+                    self.log.log_tool_error(&call_id, &tool_name, start.elapsed(), &err).await
+                {
+                    warn!(
+                        error = ?log_err,
+                        server_id = %self.definition.id,
+                        tool = %tool_name,
+                        "failed to record tool error log entry"
+                    );
+                }
+                Err(err)
+            }
+        }
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -566,32 +608,13 @@ struct ServerAdapter {
 }
 
 struct ServerAdapterInner {
-    server_name: String,
-    log: tokio::sync::Mutex<tokio::fs::File>,
+    log: ServerLogHandle,
     needs_refresh: Arc<AtomicBool>,
 }
 
 impl ServerAdapter {
-    async fn new(
-        server_name: String,
-        log_path: PathBuf,
-        needs_refresh: Arc<AtomicBool>,
-    ) -> Result<Self> {
-        let log_file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .append(true)
-            .open(&log_path)
-            .await
-            .with_context(|| format!("failed to open log file {}", log_path.display()))?;
-
-        Ok(Self {
-            inner: Arc::new(ServerAdapterInner {
-                server_name,
-                log: tokio::sync::Mutex::new(log_file),
-                needs_refresh,
-            }),
-        })
+    fn new(log: ServerLogHandle, needs_refresh: Arc<AtomicBool>) -> Self {
+        Self { inner: Arc::new(ServerAdapterInner { log, needs_refresh }) }
     }
 }
 
@@ -617,8 +640,12 @@ impl Service<RoleClient> for ServerAdapter {
     ) -> Result<(), McpError> {
         match notification {
             ServerNotification::LoggingMessageNotification(message) => {
-                if let Err(err) = self.inner.write_log(&message).await {
-                    warn!(error = ?err, server = %self.inner.server_name, "failed to write log entry");
+                if let Err(err) = self.inner.log.log_mcp_message(&message).await {
+                    warn!(
+                        error = ?err,
+                        server_id = %self.inner.log.server_id(),
+                        "failed to record MCP log entry"
+                    );
                 }
             }
             ServerNotification::ToolListChangedNotification(ToolListChangedNotification {
@@ -633,15 +660,5 @@ impl Service<RoleClient> for ServerAdapter {
 
     fn get_info(&self) -> <RoleClient as rmcp::service::ServiceRole>::Info {
         Default::default()
-    }
-}
-
-impl ServerAdapterInner {
-    async fn write_log(&self, message: &rmcp::model::LoggingMessageNotification) -> Result<()> {
-        let mut file = self.log.lock().await;
-        let payload = to_vec(message)?;
-        file.write_all(&payload).await?;
-        file.write_all(b"\n").await?;
-        Ok(())
     }
 }

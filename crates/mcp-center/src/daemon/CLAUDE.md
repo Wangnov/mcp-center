@@ -28,6 +28,9 @@
   - `ServerManager::start` 读取 `Layout::list_server_configs`，按协议启动本地子进程或远程传输。
   - 维护 `tool_cache` + `tool_index`（`HashMap<tool_name, server_id>`），并在 `ToolListChanged` 通知时置脏。
   - `ManagedServer` 封装 spawn/connect、日志写入、工具刷新、Call tool。
+- `logging.rs`：结构化日志抽象。
+  - `LogSink` 提供 `tokio` 异步写入；`ServerLogHandle` 负责将 MCP 原生日志、工具调用 request/response 序列化为 JSONL。
+  - 暴露 `log_tool_request/response/error` 供 `ManagedServer::call_tool` 埋点，后续 SSE/查询接口可直接复用。
 - `rpc.rs`：简单 JSON-RPC（行分隔）供 CLI 使用；支持 ListTools/GetToolInfo/Ping。
 
 ## 交互关系
@@ -42,5 +45,5 @@
 - 控制 socket 改为使用 `interprocess` 跨平台本地 socket，Unix/Windows 行为一致（Unix 仍需删除残留文件）。
 - `server_manager` 使用 tokio + rmcp；处理 async 错误时多返回 `anyhow` 或 `McpError`，上层需充分日志。
 - 工具缓存：调用 `list_tools`/`call_tool` 前先 `ensure_tool_cache()`，倚赖 `needs_refresh` 标志；若新增通知类型需同步设置。
-- 日志写入：`ServerAdapterInner::write_log` 将服务端 log JSON 行追加到 `<logs>/<id>.log`。
+- 日志写入：所有日志写入经 `ServerLogHandle`，同一入口生成结构化 JSON（MCP Logging、工具调用 request/response/error），落盘位置 `<logs>/<serverId>.log`，后续轮转/查询在此基础上扩展。
 - 清理：daemon 停止后需删除 rpc socket/控制 socket/pid 文件；`serve` 里已有基础处理，新增资源时别忘记清理。
