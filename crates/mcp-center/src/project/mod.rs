@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::{Arc, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -15,8 +16,10 @@ use std::os::unix::ffi::OsStrExt as _;
 use std::os::windows::ffi::OsStrExt as _;
 
 use crate::{error::CoreError, paths::Layout};
+use tracing::warn;
 
 const PROJECT_ID_HEX_LEN: usize = 16;
+const MAX_CACHE_REFRESH_ATTEMPTS: usize = 3;
 
 /// Identifier for a project tracked by MCP Center.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -149,69 +152,155 @@ impl ProjectRecord {
 /// Helper to load and persist project records on disk.
 #[derive(Debug, Clone)]
 pub struct ProjectRegistry {
+    inner: Arc<ProjectRegistryInner>,
+}
+
+#[derive(Debug)]
+struct ProjectRegistryInner {
     root: PathBuf,
+    cache: RwLock<ProjectCache>,
+}
+
+/// Snapshot of files under the projects directory used to invalidate the in-memory cache.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum DirectoryFingerprint {
+    Missing,
+    Known(HashMap<PathBuf, FileFingerprint>),
+    Unknown,
+}
+
+impl DirectoryFingerprint {
+    fn missing() -> Self {
+        DirectoryFingerprint::Missing
+    }
+
+    fn unknown() -> Self {
+        DirectoryFingerprint::Unknown
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FileFingerprint {
+    modified: Option<SystemTime>,
+    len: Option<u64>,
+}
+
+impl FileFingerprint {
+    fn from_metadata(metadata: Option<fs::Metadata>) -> Self {
+        let modified = metadata.as_ref().and_then(|meta| meta.modified().ok());
+        let len = metadata.as_ref().map(|meta| meta.len());
+        FileFingerprint { modified, len }
+    }
+}
+
+/// Cached project records backed by the on-disk TOML files.
+#[derive(Debug)]
+struct ProjectCache {
+    records_by_id: HashMap<String, ProjectRecord>,
+    path_index: HashMap<PathBuf, String>,
+    fingerprint: DirectoryFingerprint,
+    loaded: bool,
+}
+
+impl Default for ProjectCache {
+    fn default() -> Self {
+        Self {
+            records_by_id: HashMap::new(),
+            path_index: HashMap::new(),
+            fingerprint: DirectoryFingerprint::missing(),
+            loaded: false,
+        }
+    }
+}
+
+impl ProjectCache {
+    fn replace_with_snapshot(
+        &mut self,
+        snapshot: CacheSnapshot,
+        fingerprint: DirectoryFingerprint,
+    ) {
+        self.records_by_id = snapshot.records_by_id;
+        self.path_index = snapshot.path_index;
+        self.fingerprint = fingerprint;
+        self.loaded = true;
+    }
+
+    fn clear_to_missing(&mut self) {
+        self.records_by_id.clear();
+        self.path_index.clear();
+        self.fingerprint = DirectoryFingerprint::missing();
+        self.loaded = true;
+    }
+
+    fn record_vec(&self) -> Vec<ProjectRecord> {
+        self.records_by_id.values().cloned().collect()
+    }
+}
+
+struct CacheSnapshot {
+    records_by_id: HashMap<String, ProjectRecord>,
+    path_index: HashMap<PathBuf, String>,
+    fingerprint: DirectoryFingerprint,
 }
 
 impl ProjectRegistry {
     pub fn new(layout: &Layout) -> Self {
-        Self { root: layout.projects_dir().to_path_buf() }
+        Self {
+            inner: Arc::new(ProjectRegistryInner {
+                root: layout.projects_dir().to_path_buf(),
+                cache: RwLock::new(ProjectCache::default()),
+            }),
+        }
     }
 
     pub fn ensure(&self) -> Result<()> {
-        if !self.root.exists() {
-            fs::create_dir_all(&self.root)
-                .map_err(|source| CoreError::CreateDirectory { path: self.root.clone(), source })?;
+        if !self.root().exists() {
+            fs::create_dir_all(self.root()).map_err(|source| CoreError::CreateDirectory {
+                path: self.root().to_path_buf(),
+                source,
+            })?;
         }
         Ok(())
     }
 
     pub fn list(&self) -> Result<Vec<ProjectRecord>> {
-        if !self.root.exists() {
-            return Ok(Vec::new());
-        }
-        let mut records = Vec::new();
-        for entry in fs::read_dir(&self.root)
-            .map_err(|source| CoreError::ReadDirectory { path: self.root.clone(), source })?
-        {
-            let entry = entry
-                .map_err(|source| CoreError::ReadDirectory { path: self.root.clone(), source })?;
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            if path.extension().and_then(|s| s.to_str()) != Some("toml") {
-                continue;
-            }
-            let record = self.load_from_path(&path)?;
-            records.push(record);
-        }
-        Ok(records)
+        self.ensure_cache_fresh()?;
+        let cache = self.cache();
+        let cache = cache.read().expect("project cache poisoned");
+        Ok(cache.record_vec())
     }
 
     pub fn load(&self, id: &ProjectId) -> Result<ProjectRecord> {
-        let path = self.path_for(id);
-        if !path.exists() {
-            return Err(CoreError::ProjectConfigNotFound { id: id.as_str().to_string() }.into());
-        }
-        self.load_from_path(&path)
+        self.ensure_cache_fresh()?;
+        let cache = self.cache();
+        let cache = cache.read().expect("project cache poisoned");
+        cache
+            .records_by_id
+            .get(id.as_str())
+            .cloned()
+            .ok_or_else(|| CoreError::ProjectConfigNotFound { id: id.as_str().to_string() }.into())
     }
 
     pub fn load_from_id_str(&self, id_str: &str) -> Result<ProjectRecord> {
-        let path = self.path_for_raw(id_str);
-        if !path.exists() {
-            return Err(CoreError::ProjectConfigNotFound { id: id_str.to_string() }.into());
-        }
-        self.load_from_path(&path)
+        self.ensure_cache_fresh()?;
+        let cache = self.cache();
+        let cache = cache.read().expect("project cache poisoned");
+        cache
+            .records_by_id
+            .get(id_str)
+            .cloned()
+            .ok_or_else(|| CoreError::ProjectConfigNotFound { id: id_str.to_string() }.into())
     }
 
     pub fn find_by_path(&self, target: &Path) -> Result<Option<ProjectRecord>> {
-        let canonical_target = target.to_path_buf();
-        for record in self.list()? {
-            if record.path == canonical_target {
-                return Ok(Some(record));
-            }
+        self.ensure_cache_fresh()?;
+        let cache = self.cache();
+        let cache = cache.read().expect("project cache poisoned");
+        if let Some(id) = cache.path_index.get(target) {
+            Ok(cache.records_by_id.get(id).cloned())
+        } else {
+            Ok(None)
         }
-        Ok(None)
     }
 
     pub fn store(&self, record: &ProjectRecord) -> Result<()> {
@@ -219,6 +308,7 @@ impl ProjectRegistry {
         let doc = toml_edit::ser::to_string_pretty(record)
             .map_err(|source| CoreError::ProjectSerialise { source })?;
         fs::write(&path, doc).map_err(|source| CoreError::ProjectWrite { path, source })?;
+        self.update_cache_after_store(record.clone());
         Ok(())
     }
 
@@ -229,6 +319,7 @@ impl ProjectRegistry {
         }
         fs::remove_file(&path)
             .map_err(|source| CoreError::RemoveFile { path: path.clone(), source })?;
+        self.update_cache_after_delete(id.as_str());
         Ok(())
     }
 
@@ -239,6 +330,7 @@ impl ProjectRegistry {
         }
         fs::remove_file(&path)
             .map_err(|source| CoreError::RemoveFile { path: path.clone(), source })?;
+        self.update_cache_after_delete(id);
         Ok(())
     }
 
@@ -247,7 +339,171 @@ impl ProjectRegistry {
     }
 
     pub fn path_for_raw(&self, id: &str) -> PathBuf {
-        self.root.join(format!("{id}.toml"))
+        self.root().join(format!("{id}.toml"))
+    }
+
+    fn root(&self) -> &Path {
+        &self.inner.root
+    }
+
+    fn cache(&self) -> &RwLock<ProjectCache> {
+        &self.inner.cache
+    }
+
+    fn ensure_cache_fresh(&self) -> Result<()> {
+        let fingerprint = self.collect_fingerprint()?;
+        {
+            let cache = self.cache().read().expect("project cache poisoned");
+            if cache.loaded
+                && cache.fingerprint == fingerprint
+                && !matches!(fingerprint, DirectoryFingerprint::Unknown)
+            {
+                return Ok(());
+            }
+        }
+        self.refresh_cache(fingerprint)
+    }
+
+    fn refresh_cache(&self, fingerprint: DirectoryFingerprint) -> Result<()> {
+        if matches!(fingerprint, DirectoryFingerprint::Missing) {
+            let mut cache = self.cache().write().expect("project cache poisoned");
+            cache.clear_to_missing();
+            return Ok(());
+        }
+
+        let mut attempts = 0usize;
+        loop {
+            attempts += 1;
+            let snapshot = self.scan_records()?;
+            let confirm = self.collect_fingerprint()?;
+
+            if snapshot.fingerprint == confirm {
+                let mut cache = self.cache().write().expect("project cache poisoned");
+                cache.replace_with_snapshot(snapshot, confirm);
+                return Ok(());
+            }
+
+            if attempts >= MAX_CACHE_REFRESH_ATTEMPTS {
+                warn!(
+                    "project registry directory mutated repeatedly during refresh; forcing reload next access"
+                );
+                let mut cache = self.cache().write().expect("project cache poisoned");
+                cache.replace_with_snapshot(snapshot, DirectoryFingerprint::unknown());
+                return Ok(());
+            }
+        }
+    }
+
+    fn update_cache_after_store(&self, record: ProjectRecord) {
+        let file_path = self.path_for_raw(&record.id);
+        let mut cache = self.cache().write().expect("project cache poisoned");
+        if !cache.loaded {
+            cache.fingerprint = DirectoryFingerprint::unknown();
+            return;
+        }
+        if let Some(previous) = cache.records_by_id.insert(record.id.clone(), record.clone()) {
+            cache.path_index.remove(&previous.path);
+        }
+        cache.path_index.insert(record.path.clone(), record.id.clone());
+        match &mut cache.fingerprint {
+            DirectoryFingerprint::Known(entries) => match fs::metadata(&file_path) {
+                Ok(metadata) => {
+                    entries.insert(file_path, FileFingerprint::from_metadata(Some(metadata)));
+                }
+                Err(_) => {
+                    cache.fingerprint = DirectoryFingerprint::unknown();
+                }
+            },
+            _ => {
+                cache.fingerprint = DirectoryFingerprint::unknown();
+            }
+        }
+    }
+
+    fn update_cache_after_delete(&self, id: &str) {
+        let file_path = self.path_for_raw(id);
+        let mut cache = self.cache().write().expect("project cache poisoned");
+        if !cache.loaded {
+            cache.fingerprint = DirectoryFingerprint::unknown();
+            return;
+        }
+        if let Some(previous) = cache.records_by_id.remove(id) {
+            cache.path_index.remove(&previous.path);
+        }
+        match &mut cache.fingerprint {
+            DirectoryFingerprint::Known(entries) => {
+                entries.remove(&file_path);
+            }
+            _ => {
+                cache.fingerprint = DirectoryFingerprint::unknown();
+            }
+        }
+    }
+
+    fn collect_fingerprint(&self) -> Result<DirectoryFingerprint> {
+        let root = self.root();
+        if !root.exists() {
+            return Ok(DirectoryFingerprint::missing());
+        }
+
+        let mut entries = HashMap::new();
+        for entry in fs::read_dir(root)
+            .map_err(|source| CoreError::ReadDirectory { path: root.to_path_buf(), source })?
+        {
+            let entry = entry
+                .map_err(|source| CoreError::ReadDirectory { path: root.to_path_buf(), source })?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            if path.extension().and_then(|s| s.to_str()) != Some("toml") {
+                continue;
+            }
+            let metadata = entry.metadata().ok();
+            entries.insert(path, FileFingerprint::from_metadata(metadata));
+        }
+
+        Ok(DirectoryFingerprint::Known(entries))
+    }
+
+    fn scan_records(&self) -> Result<CacheSnapshot> {
+        let mut records_by_id = HashMap::new();
+        let mut path_index = HashMap::new();
+        let mut entries = HashMap::new();
+
+        let root = self.root();
+        if !root.exists() {
+            return Ok(CacheSnapshot {
+                records_by_id,
+                path_index,
+                fingerprint: DirectoryFingerprint::missing(),
+            });
+        }
+
+        for entry in fs::read_dir(root)
+            .map_err(|source| CoreError::ReadDirectory { path: root.to_path_buf(), source })?
+        {
+            let entry = entry
+                .map_err(|source| CoreError::ReadDirectory { path: root.to_path_buf(), source })?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            if path.extension().and_then(|s| s.to_str()) != Some("toml") {
+                continue;
+            }
+            let metadata = entry.metadata().ok();
+            entries.insert(path.clone(), FileFingerprint::from_metadata(metadata));
+            let record = self.load_from_path(&path)?;
+            path_index.insert(record.path.clone(), record.id.clone());
+            records_by_id.insert(record.id.clone(), record);
+        }
+
+        Ok(CacheSnapshot {
+            records_by_id,
+            path_index,
+            fingerprint: DirectoryFingerprint::Known(entries),
+        })
     }
 
     fn load_from_path(&self, path: &Path) -> Result<ProjectRecord> {

@@ -25,5 +25,5 @@
 
 - 新增字段时确保 `#[serde(default)]` 或自定义默认，避免旧记录解析失败。
 - 修改 `ProjectId` 生成算法会破坏已有记录，慎动。
-- 若需要枚举所有项目，`ProjectRegistry::list()` 会读取目录并解析所有 TOML；可能较慢，必要时考虑缓存层。
-- `ProjectRegistry::find_by_path` 当前是线性扫描，调用频繁时可考虑额外索引。
+- `ProjectRegistry` 在内存中缓存 `.toml` 记录，并通过文件指纹（mtime + size）检测外部变动；若底层文件系统不暴露这些元数据，会退化为每次强制重建缓存。
+- `ProjectRegistry::find_by_path` 依赖缓存构建的路径索引，调用前务必保证传入路径已经过规范化/一致化处理。
